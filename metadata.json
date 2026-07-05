@@ -1,0 +1,6 @@
+{
+  "name": "WeGist",
+  "description": "Instant messaging with integrated social gaming and live gaming streams.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
