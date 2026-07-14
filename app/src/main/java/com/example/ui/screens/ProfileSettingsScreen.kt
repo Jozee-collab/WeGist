@@ -51,12 +51,71 @@ fun ProfileSettingsScreen(
     onPerformBackup: (interval: String, destination: String) -> Unit,
     onLinkAccount: (type: String, value: String) -> Unit,
     onSearchClicked: () -> Unit,
+    onClaimQuest: (String, Int, Int) -> Unit = { _, _, _ -> },
+    onUpgradePremium: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showEditNameDialog by remember { mutableStateOf(false) }
     var nameInput by remember { mutableStateOf(userStats.username) }
     var dailyClaimed by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+
+    var lastLevel by remember { mutableStateOf(userStats.level) }
+    var showLevelUpDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(userStats.level) {
+        if (userStats.level > lastLevel) {
+            showLevelUpDialog = true
+            lastLevel = userStats.level
+        }
+    }
+
+    if (showLevelUpDialog) {
+        AlertDialog(
+            onDismissRequest = { showLevelUpDialog = false },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text("LEVEL UP! 🎮👑", fontWeight = FontWeight.Black, color = NeonMint, fontSize = 22.sp, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Guild Rank Promotion", color = TextGray, fontSize = 12.sp)
+                }
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Congratulations, @${userStats.username}! You have successfully reached Level ${userStats.level} and have been promoted to Legendary Overlord! 🚀👾",
+                        color = TextWhite,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        "Keep completing daily gamer quests, sending game challenges, and engaging with streams to climb the global leaderboard!",
+                        color = TextGray,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showLevelUpDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                    modifier = Modifier.fillMaxWidth().testTag("dismiss_levelup_btn")
+                ) {
+                    Text("Awesome, Let's Play! 👾", color = TextWhite, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color(0xFF14141A),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.border(1.5.dp, NeonPurple, RoundedCornerShape(16.dp))
+        )
+    }
 
     // SignUp / Linking states
     var showLinkDialogType by remember { mutableStateOf<String?>(null) }
@@ -165,11 +224,340 @@ fun ProfileSettingsScreen(
                             color = TextWhite
                         )
                         Text(
-                            text = "Level 8 Gamer Guild Leader",
+                            text = "Level ${userStats.level} Gamer Guild Leader",
                             fontSize = 12.sp,
                             color = NeonMint,
                             fontWeight = FontWeight.SemiBold
                         )
+                    }
+                }
+            }
+
+            // Cloud Storage Quota & Freemium Dashboard
+            item {
+                Text("Cloud Storage & Freemium Tier", color = TextWhite, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+            
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyberCard),
+                    border = BorderStroke(1.dp, if (userStats.isPremium) NeonMint else CyberBorder),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("premium_dashboard_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (userStats.isPremium) Icons.Default.Star else Icons.Default.Cloud,
+                                    contentDescription = "Cloud Storage",
+                                    tint = if (userStats.isPremium) NeonMint else TextWhite,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (userStats.isPremium) "${userStats.premiumTier} PREMIUM" else "WG STANDARD (FREE)",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (userStats.isPremium) NeonMint else TextWhite,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            if (userStats.isPremium) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(NeonMint.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("PRO ACTIVE", color = NeonMint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Storage calculation progress bar
+                        val usedMb = userStats.storageUsedBytes / (1024 * 1024f)
+                        val limitMb = userStats.storageLimitBytes / (1024 * 1024f)
+                        val ratio = (usedMb / limitMb).coerceIn(0f, 1f)
+                        
+                        LinearProgressIndicator(
+                            progress = ratio,
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                            color = if (userStats.isPremium) NeonMint else NeonPurple,
+                            trackColor = CyberBorder
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Cloud Storage Space",
+                                color = TextGray,
+                                fontSize = 11.sp
+                            )
+                            val limitText = if (limitMb >= 1024) "${(limitMb/1024).toInt()} GB" else "${limitMb.toInt()} MB"
+                            Text(
+                                text = String.format("%.1f MB of %s used", usedMb, limitText),
+                                color = TextWhite,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = CyberBorder)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Core Free Benefits:",
+                            fontWeight = FontWeight.Bold,
+                            color = TextWhite,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "• End-to-end encrypted chats under Signal Protocol\n• Interactive mini-games & live streams\n• 15 GB of cloud chat/backup storage",
+                            color = TextGray,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (!userStats.isPremium) {
+                            Text(
+                                text = "Choose Premium Tiers:",
+                                fontWeight = FontWeight.Bold,
+                                color = NeonPurple,
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                // Silver Tier
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = CyberBorder),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f).clickable { onUpgradePremium("SILVER") }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("SILVER", fontWeight = FontWeight.Black, color = Color.White, fontSize = 13.sp)
+                                        Text("$4.99/mo", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("• 50 GB Storage\n• Ad-Free Feed\n• Custom Theme", color = TextGray, fontSize = 9.sp, lineHeight = 13.sp)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .background(NeonPurple, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("BUY", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+
+                                // Gold Tier
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = CyberBorder),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f).clickable { onUpgradePremium("GOLD") }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("GOLD", fontWeight = FontWeight.Black, color = NeonMint, fontSize = 13.sp)
+                                        Text("$9.99/mo", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("• 100 GB Storage\n• Priority Streams\n• Golden Badge", color = TextGray, fontSize = 9.sp, lineHeight = 13.sp)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .background(NeonMint, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("BUY", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "You have unlocked all ${userStats.premiumTier} Pro features! Enjoy ad-free feed, advanced customization & increased storage space.",
+                                    color = TextGray,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Button(
+                                    onClick = { onUpgradePremium("FREE") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyberPink, contentColor = Color.White),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.defaultMinSize(minWidth = 1.dp, minHeight = 1.dp)
+                                ) {
+                                    Text("Cancel", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Gamer Guild Level Up Progress & Quests Card
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyberCard),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column {
+                                Text(
+                                    "GUILD RANK LEVEL ${userStats.level}",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = NeonPurple
+                                )
+                                Text(
+                                    "Progress to next tier",
+                                    fontSize = 11.sp,
+                                    color = TextGray
+                                )
+                            }
+                            Text(
+                                "${userStats.xp} / 1000 XP",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = NeonMint
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Custom animated level progress bar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF14141A))
+                                .border(0.5.dp, CyberBorder, RoundedCornerShape(6.dp))
+                        ) {
+                            val progressFactor = (userStats.xp.toFloat() / 1000f).coerceIn(0f, 1f)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(progressFactor)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(NeonPurple, NeonMint)
+                                        )
+                                    )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        
+                        Text(
+                            "Guild Achievements & Quests",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = TextWhite,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        // 3 Quests
+                        val quests = listOf(
+                            Triple("quest_chat", "Daily Chat Whisperer", "Send a message to any gamer in WeGist chat."),
+                            Triple("quest_arcade", "Arcade Challenger", "Launch or play any retro arcade mini-game."),
+                            Triple("quest_spectator", "Spectator Supporter", "Watch or support any live streamer broadcast.")
+                        )
+
+                        quests.forEachIndexed { index, (questId, title, desc) ->
+                            val isCompleted = userStats.questsCompletedJson.contains(questId)
+                            val xpAward = when (questId) {
+                                "quest_chat" -> 150
+                                "quest_arcade" -> 250
+                                else -> 200
+                            }
+                            val coinAward = when (questId) {
+                                "quest_chat" -> 100
+                                "quest_arcade" -> 150
+                                else -> 100
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                                    .background(Color(0xFF0F0F13), RoundedCornerShape(8.dp))
+                                    .border(0.5.dp, if (isCompleted) NeonMint.copy(alpha = 0.3f) else CyberBorder, RoundedCornerShape(8.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        title,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = if (isCompleted) NeonMint else TextWhite
+                                    )
+                                    Text(
+                                        desc,
+                                        fontSize = 10.sp,
+                                        color = TextGray,
+                                        lineHeight = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("+${xpAward} XP 🎮", fontSize = 9.sp, color = NeonPurple, fontWeight = FontWeight.Bold)
+                                        Text("+${coinAward} 🪙", fontSize = 9.sp, color = AccentOrange, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { onClaimQuest(questId, xpAward, coinAward) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isCompleted) Color.Transparent else NeonMint,
+                                        contentColor = if (isCompleted) NeonMint else Color.Black
+                                    ),
+                                    border = if (isCompleted) BorderStroke(1.dp, NeonMint) else null,
+                                    enabled = !isCompleted,
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier
+                                        .height(28.dp)
+                                        .testTag("claim_${questId}_btn")
+                                ) {
+                                    Text(
+                                        if (isCompleted) "Claimed ✓" else "Claim",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -231,6 +619,252 @@ fun ProfileSettingsScreen(
                             modifier = Modifier.testTag("claim_daily_btn")
                         ) {
                             Text(if (dailyClaimed) "Claimed" else "Claim 200", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Creator & Business Tools + Peer-to-Peer Payments Section
+            item {
+                Text("Creator Tools & Wallet Payments", color = TextWhite, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyberCard),
+                    border = BorderStroke(1.dp, CyberBorder),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        // Header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(NeonMint.copy(alpha = 0.15f), CircleShape)
+                                    .border(1.dp, NeonMint, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Storefront, contentDescription = null, tint = NeonMint, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Gamer Storefront & Streaming Ticket Prices", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Monetize your stream gameplay with custom viewer ticket pricing.", color = TextGray, fontSize = 11.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Streaming ticket pricing configuration
+                        var ticketPrice by remember { mutableStateOf("50") }
+                        var isMonetizationEnabled by remember { mutableStateOf(true) }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Enable Viewer Ticket Charges", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Charge viewers when you stream gameplay", color = TextGray, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = isMonetizationEnabled,
+                                onCheckedChange = { isMonetizationEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NeonMint,
+                                    checkedTrackColor = NeonMint.copy(alpha = 0.3f),
+                                    uncheckedThumbColor = TextGray,
+                                    uncheckedTrackColor = Color.Transparent
+                                ),
+                                modifier = Modifier.testTag("monetize_switch")
+                            )
+                        }
+
+                        if (isMonetizationEnabled) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = ticketPrice,
+                                onValueChange = { ticketPrice = it.filter { char -> char.isDigit() } },
+                                label = { Text("Stream Entry Fee (Coins)", color = TextGray) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = TextWhite,
+                                    unfocusedTextColor = TextWhite,
+                                    focusedBorderColor = NeonMint,
+                                    unfocusedBorderColor = CyberBorder
+                                ),
+                                trailingIcon = { Text("🪙", modifier = Modifier.padding(end = 12.dp)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().testTag("stream_ticket_input")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = CyberBorder, thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Creator Analytics Overview
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(CyberPink.copy(alpha = 0.15f), CircleShape)
+                                    .border(1.dp, CyberPink, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.QueryStats, contentDescription = null, tint = CyberPink, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Creator Account Analytics", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1.5f)
+                                    .background(Color(0xFF0D0D12), RoundedCornerShape(8.dp))
+                                    .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text("Viewer Tips Revenue", color = TextGray, fontSize = 11.sp)
+                                Text("🪙 1,450 Coins", color = CyberPink, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(Color(0xFF0D0D12), RoundedCornerShape(8.dp))
+                                    .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text("Subscribers", color = TextGray, fontSize = 11.sp)
+                                Text("📡 12 Active", color = NeonPurple, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = CyberBorder, thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Peer-to-Peer Fast Wallet Transfer (simulate sending coins to standard test users Alice or Bob)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(AccentOrange.copy(alpha = 0.15f), CircleShape)
+                                    .border(1.dp, AccentOrange, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Send, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Wallet Coin P2P Transfer", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Send tokens instantly to other active guild members.", color = TextGray, fontSize = 11.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        var p2pRecipient by remember { mutableStateOf("Alice (Retro Gamer)") }
+                        var p2pAmount by remember { mutableStateOf("100") }
+                        var isRecipientDropdownExpanded by remember { mutableStateOf(false) }
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { isRecipientDropdownExpanded = true },
+                                border = BorderStroke(1.dp, CyberBorder),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite),
+                                modifier = Modifier.fillMaxWidth().testTag("select_p2p_recipient_btn")
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("To: $p2pRecipient", fontSize = 13.sp)
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextGray)
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = isRecipientDropdownExpanded,
+                                onDismissRequest = { isRecipientDropdownExpanded = false },
+                                modifier = Modifier.background(CyberCard)
+                            ) {
+                                listOf("Alice (Retro Gamer)", "Bob_Destroyer").forEach { name ->
+                                    DropdownMenuItem(
+                                        text = { Text(name, color = TextWhite) },
+                                        onClick = {
+                                            p2pRecipient = name
+                                            isRecipientDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = p2pAmount,
+                                onValueChange = { p2pAmount = it.filter { char -> char.isDigit() } },
+                                label = { Text("Transfer Amount", color = TextGray) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = TextWhite,
+                                    unfocusedTextColor = TextWhite,
+                                    focusedBorderColor = AccentOrange,
+                                    unfocusedBorderColor = CyberBorder
+                                ),
+                                trailingIcon = { Text("🪙", modifier = Modifier.padding(end = 12.dp)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1.2f).testTag("settings_p2p_amount_input")
+                            )
+
+                            Button(
+                                onClick = {
+                                    val amt = p2pAmount.toIntOrNull() ?: 0
+                                    if (amt > 0 && amt <= userStats.coins) {
+                                        onAwardCoins(-amt)
+                                        p2pAmount = "100"
+                                        android.widget.Toast.makeText(context, "Transferred $amt Coins to $p2pRecipient! 💸✨", android.widget.Toast.LENGTH_LONG).show()
+                                    } else if (amt > userStats.coins) {
+                                        android.widget.Toast.makeText(context, "Insufficient coin balance!", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Enter a valid amount!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                                    .padding(top = 8.dp)
+                                    .testTag("settings_p2p_send_btn")
+                            ) {
+                                Text("Send 💸", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -325,17 +959,17 @@ fun ProfileSettingsScreen(
 
                         HorizontalDivider(color = CyberBorder)
 
-                        // Gmail Link
+                        // Email Link
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.Mail, contentDescription = "Gmail", tint = CyberPink, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Mail, contentDescription = "Email", tint = CyberPink, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text("Google Account", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("Email Profile", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text(
                                         text = if (userStats.authGmail.isEmpty()) "Not connected" else "Linked: ${userStats.authGmail}",
                                         color = if (userStats.authGmail.isEmpty()) TextGray else NeonMint,
@@ -344,7 +978,7 @@ fun ProfileSettingsScreen(
                                 }
                             }
                             Button(
-                                onClick = { showLinkDialogType = "GMAIL" },
+                                onClick = { showLinkDialogType = "EMAIL" },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (userStats.authGmail.isEmpty()) CyberBorder else Color(0xFF0F2D1E),
                                     contentColor = if (userStats.authGmail.isEmpty()) TextWhite else NeonMint
@@ -388,40 +1022,6 @@ fun ProfileSettingsScreen(
                                 modifier = Modifier.defaultMinSize(minHeight = 36.dp).testTag("link_facebook_btn")
                             ) {
                                 Text(if (userStats.authFacebook.isEmpty()) "Connect" else "Modify", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        HorizontalDivider(color = CyberBorder)
-
-                        // X (Twitter) Link
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Icon(Icons.Default.Language, contentDescription = "X Twitter", tint = AccentOrange, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text("X Profile (Twitter)", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text(
-                                        text = if (userStats.authX.isEmpty()) "Not connected" else "Linked: @${userStats.authX}",
-                                        color = if (userStats.authX.isEmpty()) TextGray else NeonMint,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-                            Button(
-                                onClick = { showLinkDialogType = "X" },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (userStats.authX.isEmpty()) CyberBorder else Color(0xFF0F2D1E),
-                                    contentColor = if (userStats.authX.isEmpty()) TextWhite else NeonMint
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                modifier = Modifier.defaultMinSize(minHeight = 36.dp).testTag("link_x_btn")
-                            ) {
-                                Text(if (userStats.authX.isEmpty()) "Connect" else "Modify", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

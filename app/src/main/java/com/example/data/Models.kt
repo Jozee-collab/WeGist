@@ -15,6 +15,9 @@ data class ChatMessage(
     val gameStatus: String? = null, // PENDING, ACTIVE, COMPLETED, REJECTED
     val gameWinner: String? = null,
     val gameData: String? = null, // Holds Tic-Tac-Toe grid or state (e.g. "X,O,,O,X,,,X,")
+    val isEncrypted: Boolean = true,
+    val encryptionAlgorithm: String = "Signal-GCM-256",
+    val reactionsJson: String = "[]",
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -55,7 +58,15 @@ data class UserStats(
     val authPhone: String = "",
     val authGmail: String = "",
     val authFacebook: String = "",
-    val authX: String = ""
+    val authX: String = "",
+    val xp: Int = 450,
+    val level: Int = 8,
+    val gamerTag: String = "WG#9842",
+    val questsCompletedJson: String = "[]",
+    val isPremium: Boolean = false,
+    val premiumTier: String = "FREE",
+    val storageUsedBytes: Long = 26214400L,
+    val storageLimitBytes: Long = 15L * 1024 * 1024 * 1024
 )
 
 @Entity(tableName = "posts")
@@ -85,4 +96,38 @@ data class Reel(
     val viewsCount: Int = 0,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "friends")
+data class Friend(
+    @PrimaryKey val userId: String,
+    val username: String,
+    val avatarResName: String,
+    val globalRank: Int,
+    val wins: Int,
+    val isOnline: Boolean = true,
+    val presence: String = "online"
+)
+
+@Entity(tableName = "friend_requests")
+data class FriendRequest(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val senderId: String,
+    val senderName: String,
+    val senderAvatar: String,
+    val receiverId: String, // "me" or other userId
+    val status: String, // PENDING, ACCEPTED, REJECTED
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "stories")
+data class Story(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val authorName: String,
+    val authorAvatar: String,
+    val textContent: String,
+    val imageUrl: String? = null,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isViewed: Boolean = false
+)
+
 

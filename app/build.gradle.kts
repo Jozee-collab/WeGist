@@ -61,6 +61,14 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
+tasks.withType<Test> {
+  maxHeapSize = "2048m"
+  testLogging {
+    events("passed", "skipped", "failed")
+    showStandardStreams = true
+  }
+}
+
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
 secrets {
@@ -101,6 +109,7 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
+  implementation(libs.firebase.auth)
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
@@ -128,3 +137,10 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.matching {
+  it.name.startsWith("ksp") && (it.name.contains("UnitTest") || it.name.contains("AndroidTest"))
+}.configureEach {
+  enabled = false
+}
+

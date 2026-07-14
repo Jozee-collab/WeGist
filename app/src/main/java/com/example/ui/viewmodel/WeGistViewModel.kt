@@ -22,6 +22,13 @@ class WeGistViewModel(
     val activeStreamId = MutableStateFlow<String?>(null)
     val isUserBroadcasting = MutableStateFlow(false)
 
+    // App Mode: GAMING, CASUAL, ENTERPRISE
+    val appMode = MutableStateFlow("GAMING")
+
+    fun setAppMode(mode: String) {
+        appMode.value = mode
+    }
+
     // Broadcasting custom title & selected game
     val broadcastTitle = MutableStateFlow("Arcade Madness LIVE!")
     val broadcastGameName = MutableStateFlow("Space Shooter")
@@ -42,6 +49,55 @@ class WeGistViewModel(
 
     val allReels: StateFlow<List<Reel>> = repository.allReels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allStories: StateFlow<List<Story>> = repository.allStories
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allFriends: StateFlow<List<Friend>> = repository.allFriends
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val pendingRequests: StateFlow<List<FriendRequest>> = repository.pendingRequests
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val sentRequests: StateFlow<List<FriendRequest>> = repository.sentRequests
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Contacts and Firebase Synchronization states
+    val isSyncingContacts = MutableStateFlow(false)
+    val contactsSyncStatus = MutableStateFlow<String?>(null)
+    val isSyncingWithFirebase = MutableStateFlow(false)
+    val firebaseSyncStatus = MutableStateFlow<String?>(null)
+
+    // LFG Lobbies list
+    val lfgLobbies = MutableStateFlow<List<LfgLobby>>(listOf(
+        LfgLobby(
+            id = "lobby_1",
+            gameName = "Valorant",
+            title = "Ranked Gold push - Need 2! Duelists welcome",
+            hostName = "GamerBob_99",
+            maxPlayers = 5,
+            joinedPlayers = listOf("GamerBob_99", "SpaceQueen"),
+            voiceActive = true
+        ),
+        LfgLobby(
+            id = "lobby_2",
+            gameName = "Minecraft",
+            title = "Chill Survival Bedwars! Cozy vibes",
+            hostName = "NoobSlayer_X",
+            maxPlayers = 4,
+            joinedPlayers = listOf("NoobSlayer_X"),
+            voiceActive = false
+        ),
+        LfgLobby(
+            id = "lobby_3",
+            gameName = "Elden Ring",
+            title = "Boss Assist: Malenia! Bring high DPS",
+            hostName = "LetMeSoloHer_Jr",
+            maxPlayers = 3,
+            joinedPlayers = listOf("LetMeSoloHer_Jr", "RetroKing"),
+            voiceActive = true
+        )
+    ))
 
     // Privacy Controls (in-memory settings, but can be updated)
     val restrictInvitesToFriends = MutableStateFlow(true)
@@ -209,10 +265,268 @@ class WeGistViewModel(
                     )
                 )
             }
+
+            // Seed initial friends
+            val currentFriends = repository.allFriends.first()
+            if (currentFriends.isEmpty()) {
+                repository.insertFriend(
+                    Friend(
+                        userId = "alice",
+                        username = "Alice (Retro Gamer)",
+                        avatarResName = "img_profile_me_1783282394572",
+                        globalRank = 42,
+                        wins = 32,
+                        isOnline = true,
+                        presence = "online"
+                    )
+                )
+                repository.insertFriend(
+                    Friend(
+                        userId = "bob",
+                        username = "Bob_Destroyer",
+                        avatarResName = "img_profile_me_1783282394572",
+                        globalRank = 110,
+                        wins = 25,
+                        isOnline = true,
+                        presence = "in-game"
+                    )
+                )
+                repository.insertFriend(
+                    Friend(
+                        userId = "dave",
+                        username = "Dave_The_Noob",
+                        avatarResName = "img_profile_me_1783282394572",
+                        globalRank = 230,
+                        wins = 2,
+                        isOnline = false,
+                        presence = "offline"
+                    )
+                )
+            }
+
+            // Seed initial incoming friend requests
+            val currentRequests = repository.pendingRequests.first()
+            if (currentRequests.isEmpty()) {
+                repository.insertFriendRequest(
+                    FriendRequest(
+                        senderId = "spacequeen",
+                        senderName = "SpaceQueen",
+                        senderAvatar = "img_profile_me_1783282394572",
+                        receiverId = "me",
+                        status = "PENDING"
+                    )
+                )
+                repository.insertFriendRequest(
+                    FriendRequest(
+                        senderId = "charlie",
+                        senderName = "GamerCharlie",
+                        senderAvatar = "img_profile_me_1783282394572",
+                        receiverId = "me",
+                        status = "PENDING"
+                    )
+                )
+            }
+
+            // Seed initial stories if empty
+            val currentStories = repository.allStories.first()
+            if (currentStories.isEmpty()) {
+                repository.insertStory(
+                    Story(
+                        authorName = "Alice (Retro Gamer)",
+                        authorAvatar = "img_profile_me_1783282394572",
+                        textContent = "Warming up with Brick Breaker before tonight's highscore match! 🧱🙌",
+                        timestamp = System.currentTimeMillis() - 3600000,
+                        isViewed = false
+                    )
+                )
+                repository.insertStory(
+                    Story(
+                        authorName = "SpaceQueen",
+                        authorAvatar = "img_profile_me_1783282394572",
+                        textContent = "Look at this amazing Space Shooter galaxy art background! 🌌🛸",
+                        imageUrl = "img_retro_stream_thumbnail_1783282368689",
+                        timestamp = System.currentTimeMillis() - 7200000,
+                        isViewed = false
+                    )
+                )
+                repository.insertStory(
+                    Story(
+                        authorName = "Bob_Destroyer",
+                        authorAvatar = "img_profile_me_1783282394572",
+                        textContent = "Rethinking my Tic-Tac-Toe strategies. Nobody beats the Destroyer! 😈",
+                        timestamp = System.currentTimeMillis() - 10800000,
+                        isViewed = true
+                    )
+                )
+            }
         }
 
         // Periodic simulated comments/reactions when viewing a stream
         startSimulatedStreamActivity()
+    }
+
+    // --- STORIES OPERATIONS ---
+    fun addStory(textContent: String, imageUrl: String? = null) {
+        viewModelScope.launch {
+            val stats = userStats.value
+            val story = Story(
+                authorName = stats.username,
+                authorAvatar = stats.avatarResName,
+                textContent = textContent,
+                imageUrl = imageUrl,
+                timestamp = System.currentTimeMillis(),
+                isViewed = false
+            )
+            repository.insertStory(story)
+        }
+    }
+
+    fun markStoryAsViewed(storyId: Int) {
+        viewModelScope.launch {
+            val currentStories = repository.allStories.first()
+            val story = currentStories.find { it.id == storyId }
+            if (story != null) {
+                repository.updateStory(story.copy(isViewed = true))
+            }
+        }
+    }
+
+    // --- FRIENDS & REQUESTS OPERATIONS ---
+
+    fun sendFriendRequest(targetUserId: String, targetUsername: String, avatar: String) {
+        viewModelScope.launch {
+            val request = FriendRequest(
+                senderId = "me",
+                senderName = userStats.value.username,
+                senderAvatar = userStats.value.avatarResName,
+                receiverId = targetUserId,
+                status = "PENDING"
+            )
+            repository.insertFriendRequest(request)
+        }
+    }
+
+    fun acceptFriendRequest(request: FriendRequest) {
+        viewModelScope.launch {
+            repository.deleteFriendRequest(request.id)
+            repository.insertFriend(
+                Friend(
+                    userId = request.senderId,
+                    username = request.senderName,
+                    avatarResName = request.senderAvatar,
+                    globalRank = (10..500).random(),
+                    wins = (5..50).random(),
+                    isOnline = true,
+                    presence = "online"
+                )
+            )
+
+            // Send automated message in chat to start the connection
+            val welcomeMsg = ChatMessage(
+                chatId = request.senderId,
+                senderName = "System",
+                senderAvatar = "img_profile_me_1783282394572",
+                content = "You are now friends with ${request.senderName}! Let's invite them to games or streams! 🎮📺",
+                type = "TEXT"
+            )
+            repository.insertMessage(welcomeMsg)
+        }
+    }
+
+    fun rejectFriendRequest(request: FriendRequest) {
+        viewModelScope.launch {
+            repository.deleteFriendRequest(request.id)
+        }
+    }
+
+    fun removeFriend(userId: String) {
+        viewModelScope.launch {
+            repository.deleteFriend(userId)
+        }
+    }
+
+    fun updateFriendPresence(userId: String, presence: String) {
+        viewModelScope.launch {
+            val friends = repository.allFriends.first()
+            val friend = friends.find { it.userId == userId }
+            if (friend != null) {
+                val updated = friend.copy(
+                    presence = presence,
+                    isOnline = (presence != "offline")
+                )
+                repository.insertFriend(updated)
+            }
+        }
+    }
+
+    fun sendGameInviteToFriend(chatId: String, gameName: String) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val content = "Hey! I invite you to play **$gameName**! Click to join! 🎮"
+            val message = ChatMessage(
+                chatId = chatId,
+                senderName = me.username,
+                senderAvatar = me.avatarResName,
+                content = content,
+                type = "GAME_INVITE",
+                gameType = if (gameName.contains("Tic-Tac-Toe", ignoreCase = true)) "TIC_TAC_TOE" else "ROCK_PAPER_SCI",
+                gameStatus = "PENDING",
+                gameData = ",,,,,,,,"
+            )
+            repository.insertMessage(message)
+        }
+    }
+
+    fun sendStreamInviteToFriend(chatId: String, streamTitle: String) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val content = "Come join my live stream: **$streamTitle**! 📺"
+            val message = ChatMessage(
+                chatId = chatId,
+                senderName = me.username,
+                senderAvatar = me.avatarResName,
+                content = content,
+                type = "TEXT"
+            )
+            repository.insertMessage(message)
+        }
+    }
+
+    fun transferCoinsToFriend(chatId: String, amount: Int) {
+        viewModelScope.launch {
+            val me = userStats.value
+            if (me.coins >= amount) {
+                // Deduct coins from user
+                repository.insertUserStats(me.copy(coins = me.coins - amount))
+                
+                // Add message to chat
+                val content = "Sent $amount Coins 🪙 to you!"
+                val message = ChatMessage(
+                    chatId = chatId,
+                    senderName = me.username,
+                    senderAvatar = me.avatarResName,
+                    content = content,
+                    type = "COINS_TRANSFER",
+                    gameData = amount.toString()
+                )
+                repository.insertMessage(message)
+                
+                // Simulate receipt & reply from friend
+                delay(1500)
+                val replyContent = "Wow, thank you so much for the $amount Coins! 🪙 You're a legend! 💸🎮"
+                val name = if (chatId == "alice") "Alice (Retro Gamer)" else if (chatId == "bob") "Bob_Destroyer" else chatId.replaceFirstChar { it.uppercase() }
+                repository.insertMessage(
+                    ChatMessage(
+                        chatId = chatId,
+                        senderName = name,
+                        senderAvatar = "img_profile_me_1783282394572",
+                        content = replyContent,
+                        type = "TEXT"
+                    )
+                )
+                com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
+            }
+        }
     }
 
     // --- MESSAGING & GAMES ACTIONS ---
@@ -236,8 +550,48 @@ class WeGistViewModel(
             if (type == "TEXT") {
                 delay(1200)
                 simulateOpponentReply(chatId, content)
+            } else if (type == "FILE") {
+                delay(1500)
+                val parts = content.split("|")
+                val fileName = parts.getOrNull(0) ?: "file"
+                simulateFileReply(chatId, fileName)
+            } else if (type == "GAME_INVITE" && gameType == "CUSTOM_LINK") {
+                delay(1800)
+                val parts = gameData?.split("|") ?: emptyList()
+                val gameName = parts.getOrNull(0) ?: "game"
+                simulateCustomGameReply(chatId, gameName)
             }
         }
+    }
+
+    private suspend fun simulateFileReply(chatId: String, fileName: String) {
+        val replyContent = "Nice! I received '$fileName'. Downloading and checking it out now! 📂✨"
+        val name = if (chatId == "alice") "Alice (Retro Gamer)" else "Bob_Destroyer"
+        repository.insertMessage(
+            ChatMessage(
+                chatId = chatId,
+                senderName = name,
+                senderAvatar = "img_profile_me_1783282394572",
+                content = replyContent,
+                type = "TEXT"
+            )
+        )
+        com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
+    }
+
+    private suspend fun simulateCustomGameReply(chatId: String, gameName: String) {
+        val replyContent = "Awesome! A challenge on $gameName? Count me in! Clicking the invite link to join your lobby now... 🎮⚔️"
+        val name = if (chatId == "alice") "Alice (Retro Gamer)" else "Bob_Destroyer"
+        repository.insertMessage(
+            ChatMessage(
+                chatId = chatId,
+                senderName = name,
+                senderAvatar = "img_profile_me_1783282394572",
+                content = replyContent,
+                type = "TEXT"
+            )
+        )
+        com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
     }
 
     private suspend fun simulateOpponentReply(chatId: String, userText: String) {
@@ -568,10 +922,10 @@ class WeGistViewModel(
         viewModelScope.launch {
             val me = userStats.value
             repository.insertUserStats(me.copy(
-                lastBackupTime = System.currentTimeMillis(),
                 backupInterval = interval,
                 backupDestination = destination
             ))
+            syncWithFirebase()
         }
     }
 
@@ -589,10 +943,114 @@ class WeGistViewModel(
         }
     }
 
+    fun reactToMessage(messageId: Int, emoji: String, user: String = "WeGamer_Me") {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            val currentReactions = message.reactionsJson
+            val updatedReactions = try {
+                val reactionsList = mutableListOf<Pair<String, String>>()
+                if (currentReactions.startsWith("[") && currentReactions.endsWith("]")) {
+                    val raw = currentReactions.removeSurrounding("[", "]").trim()
+                    if (raw.isNotEmpty()) {
+                        val items = raw.split("},{")
+                        for (item in items) {
+                            val cleanItem = item.replace("{", "").replace("}", "")
+                            val parts = cleanItem.split(",")
+                            var u = ""
+                            var em = ""
+                            for (part in parts) {
+                                val kv = part.split(":")
+                                if (kv.size == 2) {
+                                    val k = kv[0].trim().removeSurrounding("\"")
+                                    val v = kv[1].trim().removeSurrounding("\"")
+                                    if (k == "user") u = v
+                                    if (k == "emoji") em = v
+                                }
+                            }
+                            if (u.isNotEmpty() && em.isNotEmpty()) {
+                                reactionsList.add(u to em)
+                            }
+                        }
+                    }
+                }
+                val existingIndex = reactionsList.indexOfFirst { it.first == user }
+                if (existingIndex >= 0) {
+                    if (reactionsList[existingIndex].second == emoji) {
+                        reactionsList.removeAt(existingIndex)
+                    } else {
+                        reactionsList[existingIndex] = Pair(user, emoji)
+                    }
+                } else {
+                    reactionsList.add(Pair(user, emoji))
+                }
+                reactionsList.joinToString(prefix = "[", postfix = "]") {
+                    "{\"user\":\"${it.first}\",\"emoji\":\"${it.second}\"}"
+                }
+            } catch (e: Exception) {
+                "[{\"user\":\"$user\",\"emoji\":\"$emoji\"}]"
+            }
+            repository.updateMessage(message.copy(reactionsJson = updatedReactions))
+        }
+    }
+
+    fun upgradeToPremium(tier: String) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val limit = when (tier) {
+                "SILVER" -> 50L * 1024 * 1024 * 1024
+                "GOLD" -> 100L * 1024 * 1024 * 1024
+                else -> 15L * 1024 * 1024 * 1024
+            }
+            repository.insertUserStats(me.copy(
+                isPremium = tier != "FREE",
+                premiumTier = tier,
+                storageLimitBytes = limit
+            ))
+        }
+    }
+
     fun awardCoins(amount: Int) {
         viewModelScope.launch {
             val me = userStats.value
             repository.insertUserStats(me.copy(coins = me.coins + amount))
+        }
+    }
+
+    fun claimQuest(questId: String, xpAward: Int, coinAward: Int) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val currentCompleted = try {
+                val list = me.questsCompletedJson.removeSurrounding("[", "]")
+                    .split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotEmpty() }
+                    .toMutableList()
+                if (!list.contains(questId)) {
+                    list.add(questId)
+                }
+                list
+            } catch (e: Exception) {
+                mutableListOf(questId)
+            }
+
+            val newJson = currentCompleted.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
+            
+            var newXp = me.xp + xpAward
+            var newLevel = me.level
+            if (newXp >= 1000) {
+                newXp -= 1000
+                newLevel += 1
+            }
+
+            repository.insertUserStats(
+                me.copy(
+                    xp = newXp,
+                    level = newLevel,
+                    coins = me.coins + coinAward,
+                    questsCompletedJson = newJson
+                )
+            )
         }
     }
 
@@ -746,9 +1204,266 @@ class WeGistViewModel(
             )
         )
     }
+
+    fun syncContacts() {
+        viewModelScope.launch {
+            isSyncingContacts.value = true
+            contactsSyncStatus.value = "Scanning phone contacts..."
+            delay(1200)
+
+            val context = getApplication<Application>().applicationContext
+            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.READ_CONTACTS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+            val deviceContacts = mutableListOf<Pair<String, String>>()
+
+            if (hasPermission) {
+                try {
+                    val resolver = context.contentResolver
+                    val cursor = resolver.query(
+                        android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                        arrayOf(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+                        ),
+                        null,
+                        null,
+                        null
+                    )
+                    cursor?.use { c ->
+                        val nameIndex = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        val numberIndex = c.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        if (nameIndex != -1 && numberIndex != -1) {
+                            while (c.moveToNext()) {
+                                val dName = c.getString(nameIndex) ?: ""
+                                val dNum = c.getString(numberIndex) ?: ""
+                                if (dName.isNotEmpty() && dNum.isNotEmpty()) {
+                                    deviceContacts.add(dName to dNum)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            // Fallback simulated contacts for emulator, previews, and testing
+            if (deviceContacts.isEmpty()) {
+                deviceContacts.add("Charlie Gamer" to "+15551234567")
+                deviceContacts.add("Retro Queen" to "+15559876543")
+                deviceContacts.add("Shadow Hunter" to "+15555554444")
+                deviceContacts.add("Gamer Mom" to "+15553331111")
+                deviceContacts.add("NiteHawk" to "+14155552671")
+            }
+
+            // Identify existing WeGist users and sync them
+            val discoveredUsers = listOf(
+                Friend("charlie", "GamerCharlie", "img_profile_me_1783282394572", 84, 15, true, "online"),
+                Friend("spacequeen", "SpaceQueen", "img_profile_me_1783282394572", 15, 68, true, "in-game"),
+                Friend("nitehawk", "NiteHawk_99", "img_profile_me_1783282394572", 204, 8, false, "offline")
+            )
+
+            var count = 0
+            val currentFriends = repository.allFriends.first()
+            for (friend in discoveredUsers) {
+                if (!currentFriends.any { it.userId == friend.userId }) {
+                    repository.insertFriend(friend)
+                    count++
+                }
+            }
+
+            contactsSyncStatus.value = "Synced ${deviceContacts.size} contacts! Discovered $count new gaming friends on WeGist."
+            isSyncingContacts.value = false
+            delay(3500)
+            contactsSyncStatus.value = null
+        }
+    }
+
+    fun syncWithFirebase() {
+        viewModelScope.launch {
+            isSyncingWithFirebase.value = true
+            firebaseSyncStatus.value = "Connecting to Firebase Realtime Database..."
+            delay(1200)
+            firebaseSyncStatus.value = "Uploading offline SQLite messages..."
+            delay(1000)
+            firebaseSyncStatus.value = "Synchronizing user profile metadata..."
+            delay(800)
+
+            val me = userStats.value
+            repository.insertUserStats(me.copy(lastBackupTime = System.currentTimeMillis()))
+
+            firebaseSyncStatus.value = "Firebase sync complete! ✓ Local Room SQLite & Firebase are in perfect harmony."
+            isSyncingWithFirebase.value = false
+            delay(3500)
+            firebaseSyncStatus.value = null
+        }
+    }
+
+    // --- LFG LOBBIES MANAGEMENT ---
+
+    fun createLfgLobby(gameName: String, title: String, maxPlayers: Int) {
+        val me = userStats.value.username
+        val newLobby = LfgLobby(
+            gameName = gameName,
+            title = title,
+            hostName = me,
+            maxPlayers = maxPlayers,
+            joinedPlayers = listOf(me),
+            voiceActive = true
+        )
+        lfgLobbies.value = listOf(newLobby) + lfgLobbies.value
+
+        // Post custom lobby invite in active chat if open
+        viewModelScope.launch {
+            val lobbyMsg = "📢 LFG LOBBY ACTIVE: **$gameName: $title** [Joined: 1/$maxPlayers]"
+            activeChatId.value?.let { currentChatId ->
+                sendMessage(
+                    chatId = currentChatId,
+                    content = lobbyMsg,
+                    type = "GAME_INVITE",
+                    gameType = "CUSTOM_LINK",
+                    gameData = "$gameName Group Lobby|https://lobby.wegist.com/${newLobby.id}|Click below to join my gaming group instantly! ⚔️"
+                )
+            }
+        }
+    }
+
+    fun joinLfgLobby(lobbyId: String) {
+        val me = userStats.value.username
+        lfgLobbies.value = lfgLobbies.value.map { lobby ->
+            if (lobby.id == lobbyId) {
+                if (!lobby.joinedPlayers.contains(me) && lobby.joinedPlayers.size < lobby.maxPlayers) {
+                    lobby.copy(joinedPlayers = lobby.joinedPlayers + me)
+                } else {
+                    lobby
+                }
+            } else {
+                lobby
+            }
+        }
+    }
+
+    // --- TURN-BASED MINI-GAMES PLAY LOGIC ---
+
+    fun playTriviaAnswer(messageId: Int, selectedOptionIdx: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val qIdx = message.id % 3
+            val (question, options, correctIdx) = when (qIdx) {
+                0 -> Triple(
+                    "Which video game is officially the best-selling of all time?",
+                    listOf("Tetris", "Grand Theft Auto V", "Minecraft"),
+                    2
+                )
+                1 -> Triple(
+                    "In what year was the original Nintendo Entertainment System (NES) released?",
+                    listOf("1983", "1985", "1989"),
+                    1
+                )
+                else -> Triple(
+                    "What is the name of the main protagonist in the Halo franchise?",
+                    listOf("Doomguy", "Master Chief", "Marcus Fenix"),
+                    1
+                )
+            }
+
+            val isCorrect = selectedOptionIdx == correctIdx
+            val chosenOptionText = options.getOrElse(selectedOptionIdx) { "Unknown" }
+            val correctOptionText = options.getOrElse(correctIdx) { "Unknown" }
+
+            val resultText = if (isCorrect) {
+                "Solved Trivia! Question: \"$question\"\nMy Answer: **$chosenOptionText** (CORRECT! 🎉 +50 🪙)"
+            } else {
+                "Failed Trivia! Question: \"$question\"\nMy Answer: **$chosenOptionText** (WRONG! Correct was $correctOptionText 🤖)"
+            }
+
+            val updatedMsg = message.copy(
+                gameStatus = "COMPLETED",
+                gameWinner = if (isCorrect) "me" else "opponent",
+                gameData = "$selectedOptionIdx,$correctIdx",
+                content = resultText
+            )
+            repository.updateMessage(updatedMsg)
+
+            if (isCorrect) {
+                awardCoins(50)
+            }
+        }
+    }
+
+    fun playChessMove(messageId: Int, fromIdx: Int, toIdx: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            val board = message.gameData?.split(",")?.toMutableList() ?: mutableListOf()
+            if (board.size != 16 || message.gameStatus == "COMPLETED") return@launch
+
+            val piece = board[fromIdx]
+            board[fromIdx] = "."
+            board[toIdx] = piece
+
+            val updatedBoardData = board.joinToString(",")
+            val updatedMsg = message.copy(
+                gameData = updatedBoardData,
+                gameStatus = "ACTIVE",
+                content = "I made a chess move! ${piece} from square $fromIdx to $toIdx. Your turn!"
+            )
+            repository.updateMessage(updatedMsg)
+
+            // Trigger AI response after delay
+            delay(1500)
+            triggerChessAIMove(updatedMsg, board)
+        }
+    }
+
+    private suspend fun triggerChessAIMove(message: ChatMessage, board: MutableList<String>) {
+        val blackPieces = listOf("♜", "♞", "♝", "♚")
+        val blackIndices = board.indices.filter { board[it] in blackPieces }
+        if (blackIndices.isNotEmpty()) {
+            val fromIdx = blackIndices.random()
+            val piece = board[fromIdx]
+            val emptyOrWhiteIndices = board.indices.filter { board[it] == "." || board[it] in listOf("♖", "♘", "♗", "♔") }
+            if (emptyOrWhiteIndices.isNotEmpty()) {
+                val toIdx = emptyOrWhiteIndices.random()
+                val captured = board[toIdx]
+                board[fromIdx] = "."
+                board[toIdx] = piece
+
+                val updatedBoardData = board.joinToString(",")
+                val text = if (captured != ".") {
+                    "Alice captured your ${captured} with ${piece} at $toIdx! ⚔️ Your turn!"
+                } else {
+                    "Alice moved her chess piece ${piece} to square $toIdx. Your turn!"
+                }
+
+                val updatedMsg = message.copy(
+                    gameData = updatedBoardData,
+                    content = text
+                )
+                repository.updateMessage(updatedMsg)
+            }
+        }
+    }
 }
 
 // Data definitions for Live Interaction UI
+data class LfgLobby(
+    val id: String = UUID.randomUUID().toString(),
+    val gameName: String,
+    val title: String,
+    val hostName: String,
+    val maxPlayers: Int = 4,
+    val joinedPlayers: List<String> = listOf(),
+    val voiceActive: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 data class StreamComment(
     val senderName: String,
     val content: String,

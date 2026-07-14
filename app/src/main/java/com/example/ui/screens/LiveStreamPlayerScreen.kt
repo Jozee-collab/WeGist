@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -459,33 +460,36 @@ fun AnimatedFloatingEmoji(fe: FloatingEmoji) {
     var progress by remember { mutableStateOf(0f) }
 
     LaunchedEffect(Unit) {
-        // Simple animation loop pushing offset up
         while (progress < 1.0f) {
-            delay(20)
-            progress += 0.015f
+            delay(16)
+            progress += 0.012f
         }
     }
 
-    val yOffset = 300.dp * (1.0f - progress)
-    val alpha = 1.0f - progress
-    val scale = 0.8f + (progress * 0.4f)
+    val yOffset = 360.dp * progress
+    val alpha = if (progress < 0.2f) progress / 0.2f else if (progress > 0.8f) (1.0f - progress) / 0.2f else 1.0f
+    val scale = 0.8f + (progress * 0.6f)
+    val sineDrift = (Math.sin(progress.toDouble() * 3 * Math.PI) * 24).dp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 20.dp),
+            .padding(bottom = 60.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Text(
             text = fe.emoji,
-            fontSize = 24.sp,
+            fontSize = 28.sp,
             modifier = Modifier
-                .offset(x = fe.xOffset.dp, y = -yOffset)
+                .offset(x = fe.xOffset.dp + sineDrift, y = -yOffset)
                 .alpha(alpha)
-                .animateContentSize()
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale
+                )
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.2f * alpha))
-                .padding(4.dp)
+                .background(Color.Black.copy(alpha = 0.25f))
+                .padding(6.dp)
         )
     }
 }

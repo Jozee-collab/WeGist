@@ -46,6 +46,9 @@ fun MainScreen(
     val userStats by viewModel.userStats.collectAsStateWithLifecycle()
     val postsList by viewModel.allPosts.collectAsStateWithLifecycle()
     val reelsList by viewModel.allReels.collectAsStateWithLifecycle()
+    val storiesList by viewModel.allStories.collectAsStateWithLifecycle()
+    val friendsList by viewModel.allFriends.collectAsStateWithLifecycle()
+    val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
 
     val restrictInvites by viewModel.restrictInvitesToFriends.collectAsStateWithLifecycle()
     val restrictStreams by viewModel.restrictStreamsToFriends.collectAsStateWithLifecycle()
@@ -53,8 +56,32 @@ fun MainScreen(
     val streamComments by viewModel.streamComments.collectAsStateWithLifecycle()
     val floatingEmojis by viewModel.floatingEmojis.collectAsStateWithLifecycle()
 
+    val isSyncingContacts by viewModel.isSyncingContacts.collectAsStateWithLifecycle()
+    val contactsSyncStatus by viewModel.contactsSyncStatus.collectAsStateWithLifecycle()
+
+    // Observe active LFG lobbies
+    val lfgLobbies by viewModel.lfgLobbies.collectAsStateWithLifecycle()
+
     // Screen overlay Routing check
     when {
+        // Overlay 0: Initial Sign Up Check!
+        userStats.authPhone.isEmpty() && userStats.authGmail.isEmpty() && userStats.authFacebook.isEmpty() -> {
+            SignUpScreen(
+                userStats = userStats,
+                onSignUpComplete = { type, newUsername, value ->
+                    viewModel.updateUsername(newUsername)
+                    val mapType = when (type) {
+                        "PHONE" -> "PHONE"
+                        "EMAIL" -> "GMAIL"
+                        "FACEBOOK" -> "FACEBOOK"
+                        else -> "PHONE"
+                    }
+                    viewModel.linkAccount(mapType, value)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
         // Overlay 1: Active user is live broadcasting!
         isUserBroadcasting -> {
             val broadcastTitle by viewModel.broadcastTitle.collectAsStateWithLifecycle()
@@ -98,12 +125,17 @@ fun MainScreen(
         // Overlay 3: User is in a private message chat thread (allows inline gameplay)
         activeChatId != null -> {
             val filteredMessages = messagesList.filter { it.chatId == activeChatId }
+            val currentMode by viewModel.appMode.collectAsStateWithLifecycle()
             ChatDetailScreen(
                 chatId = activeChatId!!,
                 messages = filteredMessages,
                 userStats = userStats,
                 onSendMessage = { content, type, gameType, gameData ->
-                    viewModel.sendMessage(activeChatId!!, content, type, gameType, gameData)
+                    if (type == "COINS_TRANSFER") {
+                        viewModel.transferCoinsToFriend(activeChatId!!, gameData?.toIntOrNull() ?: 100)
+                    } else {
+                        viewModel.sendMessage(activeChatId!!, content, type, gameType, gameData)
+                    }
                 },
                 onPlayTicTacToeMove = { msgId, cellIdx ->
                     viewModel.playTicTacToeMove(msgId, cellIdx)
@@ -111,7 +143,17 @@ fun MainScreen(
                 onPlayRockPaperScissors = { msgId, choice ->
                     viewModel.playRockPaperScissors(msgId, choice)
                 },
+                onPlayTriviaAnswer = { msgId, optionIdx ->
+                    viewModel.playTriviaAnswer(msgId, optionIdx)
+                },
+                onPlayChessMove = { msgId, fromIdx, toIdx ->
+                    viewModel.playChessMove(msgId, fromIdx, toIdx)
+                },
+                onReactToMessage = { msgId, emoji ->
+                    viewModel.reactToMessage(msgId, emoji)
+                },
                 onBack = { viewModel.activeChatId.value = null },
+                appMode = currentMode,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -263,10 +305,31 @@ fun MainScreen(
 
                 when (selectedTab) {
                     "CHATS" -> {
+                        val currentMode by viewModel.appMode.collectAsStateWithLifecycle()
                         ChatsListScreen(
                             messagesList = messagesList,
+                            friendsList = friendsList,
+                            pendingRequests = pendingRequests,
+                            userStats = userStats,
+                            onAcceptRequest = { viewModel.acceptFriendRequest(it) },
+                            onRejectRequest = { viewModel.rejectFriendRequest(it) },
+                            onRemoveFriend = { viewModel.removeFriend(it) },
+                            onSendRequest = { id, name, avatar -> viewModel.sendFriendRequest(id, name, avatar) },
+                            onInviteToGame = { chatId, gameName -> viewModel.sendGameInviteToFriend(chatId, gameName) },
+                            onInviteToStream = { chatId, streamTitle -> viewModel.sendStreamInviteToFriend(chatId, streamTitle) },
                             onChatSelected = { id -> viewModel.activeChatId.value = id },
                             onSearchClicked = { showGlobalSearch = true },
+                            onUpdateFriendPresence = { id, presence -> viewModel.updateFriendPresence(id, presence) },
+                            onSendMessage = { chatId, content -> viewModel.sendMessage(chatId, content) },
+                            onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
+                            isSyncingContacts = isSyncingContacts,
+                            contactsSyncStatus = contactsSyncStatus,
+                            onSyncContacts = { viewModel.syncContacts() },
+                            appMode = currentMode,
+                            onAppModeChanged = { viewModel.setAppMode(it) },
+                            lfgLobbies = lfgLobbies,
+                            onCreateLobby = { game, title, max -> viewModel.createLfgLobby(game, title, max) },
+                            onJoinLobby = { lobbyId -> viewModel.joinLfgLobby(lobbyId) },
                             modifier = nestedModifier
                         )
                     }
@@ -275,6 +338,7 @@ fun MainScreen(
                         PostsAndReelsScreen(
                             posts = postsList,
                             reels = reelsList,
+                            stories = storiesList,
                             onAddPost = { text, image -> viewModel.createPost(text, image) },
                             onLikePost = { post -> viewModel.toggleLikePost(post) },
                             onAddPostComment = { post -> viewModel.addPostComment(post) },
@@ -282,10 +346,14 @@ fun MainScreen(
                             onLikeReel = { reel -> viewModel.toggleLikeReel(reel) },
                             onAddReelComment = { reel -> viewModel.addReelComment(reel) },
                             onViewReel = { reel -> viewModel.incrementReelViews(reel) },
+                            onAddStory = { text, image -> viewModel.addStory(text, image) },
+                            onMarkStoryAsViewed = { id -> viewModel.markStoryAsViewed(id) },
                             onShareContent = { chatId, contentType, author, content, mediaUrl, note ->
                                 viewModel.shareContentToChat(chatId, contentType, author, content, mediaUrl, note)
                             },
                             onSearchClicked = { showGlobalSearch = true },
+                            isDarkMode = userStats.isDarkMode,
+                            onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
                             modifier = nestedModifier
                         )
                     }
@@ -296,6 +364,8 @@ fun MainScreen(
                             onSelectStream = { id -> viewModel.selectStream(id) },
                             onStartBroadcast = { title, game -> viewModel.startUserBroadcast(title, game) },
                             onSearchClicked = { showGlobalSearch = true },
+                            isDarkMode = userStats.isDarkMode,
+                            onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
                             modifier = nestedModifier
                         )
                     }
@@ -303,8 +373,11 @@ fun MainScreen(
                     "GAMES" -> {
                         MiniGamesScreen(
                             userStats = userStats,
+                            friendsList = friendsList,
                             onAwardCoins = { coins -> viewModel.awardCoins(coins) },
+                            onInviteFriend = { friendId, gameName -> viewModel.sendGameInviteToFriend(friendId, gameName) },
                             onSearchClicked = { showGlobalSearch = true },
+                            onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
                             modifier = nestedModifier
                         )
                     }
@@ -324,6 +397,8 @@ fun MainScreen(
                             onPerformBackup = { interval, dest -> viewModel.performBackup(interval, dest) },
                             onLinkAccount = { type, value -> viewModel.linkAccount(type, value) },
                             onSearchClicked = { showGlobalSearch = true },
+                            onClaimQuest = { questId, xp, coins -> viewModel.claimQuest(questId, xp, coins) },
+                            onUpgradePremium = { tier -> viewModel.upgradeToPremium(tier) },
                             modifier = nestedModifier
                         )
                     }

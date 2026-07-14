@@ -29,7 +29,10 @@ class MainActivity : ComponentActivity() {
             liveStreamDao = database.liveStreamDao(),
             userStatsDao = database.userStatsDao(),
             postDao = database.postDao(),
-            reelDao = database.reelDao()
+            reelDao = database.reelDao(),
+            friendDao = database.friendDao(),
+            friendRequestDao = database.friendRequestDao(),
+            storyDao = database.storyDao()
         )
 
         // Instantiate WeGistViewModel using custom Factory
@@ -39,8 +42,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val stats by viewModel.userStats.collectAsStateWithLifecycle()
             val isDark = stats.isDarkMode
+            val currentMode by viewModel.appMode.collectAsStateWithLifecycle()
 
-            MyApplicationTheme(darkTheme = isDark) {
+            MyApplicationTheme(darkTheme = isDark, appMode = currentMode) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MainScreen(
                         viewModel = viewModel,

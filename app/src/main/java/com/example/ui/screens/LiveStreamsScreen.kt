@@ -11,10 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material.icons.filled.VideogameAsset
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +36,8 @@ fun LiveStreamsScreen(
     onSelectStream: (streamId: String) -> Unit,
     onStartBroadcast: (title: String, game: String) -> Unit,
     onSearchClicked: () -> Unit,
+    isDarkMode: Boolean = true,
+    onToggleTheme: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showBroadcastDialog by remember { mutableStateOf(false) }
@@ -57,6 +56,16 @@ fun LiveStreamsScreen(
                     )
                 },
                 actions = {
+                    IconButton(
+                        onClick = { onToggleTheme(!isDarkMode) },
+                        modifier = Modifier.testTag("streams_theme_toggle_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                            contentDescription = "Toggle Theme",
+                            tint = TextWhite
+                        )
+                    }
                     IconButton(
                         onClick = onSearchClicked,
                         modifier = Modifier.testTag("streams_search_btn")

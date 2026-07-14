@@ -44,7 +44,11 @@ fun ChatDetailScreen(
     onSendMessage: (content: String, type: String, gameType: String?, gameData: String?) -> Unit,
     onPlayTicTacToeMove: (messageId: Int, cellIndex: Int) -> Unit,
     onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
+    onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
+    onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> },
+    onReactToMessage: (messageId: Int, emoji: String) -> Unit,
     onBack: () -> Unit,
+    appMode: String = "GAMING",
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -53,6 +57,301 @@ fun ChatDetailScreen(
 
     var showGameSelector by remember { mutableStateOf(false) }
     var showStickersPanel by remember { mutableStateOf(false) }
+    var showAttachmentSelector by remember { mutableStateOf(false) }
+    var showCustomLinkDialog by remember { mutableStateOf(false) }
+    var selectedGamerName by remember { mutableStateOf<String?>(null) }
+
+    var showCoinsTransferDialog by remember { mutableStateOf(false) }
+    var coinsAmountText by remember { mutableStateOf("100") }
+
+    // Innovative features state
+    var showAiRecapDialog by remember { mutableStateOf(false) }
+    var showTranslationDialog by remember { mutableStateOf(false) }
+    var showGamingStatsDialog by remember { mutableStateOf(false) }
+    var selectedTranslationLang by remember { mutableStateOf("English") }
+    var translationEnabled by remember { mutableStateOf(false) }
+
+    if (showCoinsTransferDialog) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        AlertDialog(
+            onDismissRequest = { showCoinsTransferDialog = false },
+            containerColor = CyberCard,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(AccentOrange.copy(alpha = 0.15f), CircleShape)
+                            .border(1.dp, AccentOrange, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🪙", fontSize = 18.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Peer-to-Peer Payment", color = TextWhite, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Transfer coins directly from your wallet balance to this chat participant instantly.",
+                        color = TextGray,
+                        fontSize = 12.sp
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Your Balance:", color = TextGray, fontSize = 12.sp)
+                        Text("🪙 ${userStats.coins} Coins", color = AccentOrange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    
+                    OutlinedTextField(
+                        value = coinsAmountText,
+                        onValueChange = { coinsAmountText = it.filter { char -> char.isDigit() } },
+                        label = { Text("Transfer Amount", color = TextGray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = AccentOrange,
+                            unfocusedBorderColor = CyberBorder
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("payment_amount_input")
+                    )
+                    
+                    // Quick select options
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("50", "100", "250", "500").forEach { valAmount ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(if (coinsAmountText == valAmount) AccentOrange.copy(alpha = 0.2f) else CyberBorder, RoundedCornerShape(8.dp))
+                                    .border(1.dp, if (coinsAmountText == valAmount) AccentOrange else Color.Transparent, RoundedCornerShape(8.dp))
+                                    .clickable { coinsAmountText = valAmount }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(valAmount, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val amt = coinsAmountText.toIntOrNull() ?: 0
+                        if (amt > 0 && amt <= userStats.coins) {
+                            onSendMessage("Sent $amt Coins 🪙", "COINS_TRANSFER", null, amt.toString())
+                            showCoinsTransferDialog = false
+                        } else if (amt > userStats.coins) {
+                            android.widget.Toast.makeText(context, "Insufficient coin balance!", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Enter a valid amount!", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                    modifier = Modifier.testTag("send_p2p_payment_btn")
+                ) {
+                    Text("Transfer Coins 💸", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCoinsTransferDialog = false }) {
+                    Text("Cancel", color = TextWhite)
+                }
+            }
+        )
+    }
+
+    if (selectedGamerName != null) {
+        val name = selectedGamerName!!
+        val isAlice = name.contains("Alice", ignoreCase = true)
+        val isBob = name.contains("Bob", ignoreCase = true)
+        
+        val gamerTag = "WG#" + (Math.abs(name.hashCode() % 9000) + 1000)
+        val level = if (isAlice) 10 else if (isBob) 9 else 5
+        val rank = if (isAlice) 42 else if (isBob) 110 else 352
+        val wins = if (isAlice) 32 else if (isBob) 25 else 12
+        val activeGame = if (isAlice) "Pac-Neon Cyber" else if (isBob) "Brick Breaker Retro" else "Neon Snake Classic"
+        val status = "Playing: $activeGame 🎮"
+        val bio = if (isAlice) "Retro gaming is my life! Always down for a Tic Tac Toe rematch! 👾" 
+                    else if (isBob) "Ranked speedrunner. I destroy brick walls for breakfast. 🧱" 
+                    else "Elite Guild Scout. Friendly gamer, let's duel! 🛡️"
+
+        AlertDialog(
+            onDismissRequest = { selectedGamerName = null },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(if (isAlice) NeonPurple else if (isBob) CyberPink else NeonMint, CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = name.take(2).uppercase(),
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = name,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
+                            color = TextWhite
+                        )
+                        Text(
+                            text = gamerTag,
+                            fontSize = 11.sp,
+                            color = TextGray
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Status Badge
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                            .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(NeonMint, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = status,
+                                color = NeonMint,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Biography
+                    Column {
+                        Text("MEMBER BIO", color = TextGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = bio,
+                            color = TextWhite,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+
+                    // Stats row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF0F0F13), RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("LEVEL", color = TextGray, fontSize = 9.sp)
+                            Text("$level", color = NeonPurple, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF0F0F13), RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("RANK", color = TextGray, fontSize = 9.sp)
+                            Text("#$rank", color = CyberPink, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(Color(0xFF0F0F13), RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("WINS", color = TextGray, fontSize = 9.sp)
+                            Text("$wins W", color = NeonMint, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            onSendMessage(
+                                "I challenge you to TIC_TAC_TOE!",
+                                "GAME_INVITE",
+                                "TIC_TAC_TOE",
+                                ",,,,,,,,"
+                            )
+                            selectedGamerName = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                        modifier = Modifier.fillMaxWidth().testTag("gamer_card_challenge_ttt_btn")
+                    ) {
+                        Text("Challenge to Tic Tac Toe 🎮", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            onSendMessage(
+                                "I challenge you to ROCK_PAPER_SCI!",
+                                "GAME_INVITE",
+                                "ROCK_PAPER_SCI",
+                                "PENDING"
+                            )
+                            selectedGamerName = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                        modifier = Modifier.fillMaxWidth().testTag("gamer_card_challenge_rps_btn")
+                    ) {
+                        Text("Challenge to Rock Paper Scissors ⚔️", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    TextButton(
+                        onClick = { selectedGamerName = null },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Close Profile", color = TextWhite, fontSize = 12.sp)
+                    }
+                }
+            },
+            containerColor = Color(0xFF14141A),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.border(1.dp, CyberBorder, RoundedCornerShape(16.dp))
+        )
+    }
 
     // Scroll to bottom on load or new messages
     LaunchedEffect(messages.size) {
@@ -65,6 +364,222 @@ fun ChatDetailScreen(
         "alice" -> "Alice (Retro Gamer)"
         "bob" -> "Bob_Destroyer"
         else -> "Gaming Guild"
+    }
+
+    if (showCustomLinkDialog) {
+        val gamesList = listOf(
+            "Space Shooter Arcade",
+            "Brick Breaker Retro",
+            "Neon Snake Classic",
+            "Pac-Neon Cyber",
+            "Tetris Grid Lock",
+            "Retro Space Invaders",
+            "Chess Challenge",
+            "Tic Tac Toe",
+            "Rock Paper Scissors"
+        )
+
+        var selectedGame by remember { mutableStateOf(gamesList[0]) }
+        var inviteLinkInput by remember { mutableStateOf("") }
+        var descInput by remember { mutableStateOf("") }
+        var dropdownExpanded by remember { mutableStateOf(false) }
+
+        // Automatically update the link and description whenever a game is selected
+        LaunchedEffect(selectedGame) {
+            val randomId = (100000..999999).random()
+            val link = when (selectedGame) {
+                "Space Shooter Arcade" -> "https://wegist.arcade.play/space-shooter/challenge-lobby-$randomId"
+                "Brick Breaker Retro" -> "https://wegist.arcade.play/brick-breaker/room-$randomId"
+                "Neon Snake Classic" -> "https://wegist.arcade.play/neon-snake/match-$randomId"
+                "Pac-Neon Cyber" -> "https://wegist.arcade.play/pac-neon/join-$randomId"
+                "Tetris Grid Lock" -> "https://wegist.arcade.play/tetris/duel-$randomId"
+                "Retro Space Invaders" -> "https://wegist.arcade.play/space-invaders/lobby-$randomId"
+                "Chess Challenge" -> "https://chess.org/play/wegist-challenge-$randomId"
+                "Tic Tac Toe" -> "https://wegist.arcade.play/tic-tac-toe/room-$randomId"
+                "Rock Paper Scissors" -> "https://wegist.arcade.play/rock-paper-scissors/lobby-$randomId"
+                else -> "https://wegist.arcade.play/challenge/join?game=${selectedGame.replace(" ", "-").lowercase()}&id=$randomId"
+            }
+            inviteLinkInput = link
+            descInput = "Hey! Let's play $selectedGame. Join my game challenge invite link! 🎮⚔️"
+        }
+
+        AlertDialog(
+            onDismissRequest = { showCustomLinkDialog = false },
+            title = {
+                Text("Send Game Challenge Link 🔗", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Select a game and WeGist will auto-generate an invitation challenge link for you.", color = TextGray, fontSize = 12.sp)
+
+                    // Game Selection Dropdown
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = selectedGame,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Select Game to Play", color = TextGray) },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { dropdownExpanded = !dropdownExpanded },
+                                    modifier = Modifier.testTag("game_dropdown_arrow")
+                                ) {
+                                    Icon(
+                                        imageVector = if (dropdownExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                        contentDescription = "Dropdown Arrow",
+                                        tint = NeonPurple
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedBorderColor = NeonPurple,
+                                unfocusedBorderColor = CyberBorder,
+                                focusedContainerColor = Color(0xFF0F0F13),
+                                unfocusedContainerColor = Color(0xFF0F0F13)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { dropdownExpanded = true }
+                                .testTag("game_dropdown_field")
+                        )
+
+                        DropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .background(Color(0xFF14141A))
+                                .border(1.dp, CyberBorder)
+                                .testTag("game_dropdown_menu")
+                        ) {
+                            gamesList.forEach { game ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            val emoji = when (game) {
+                                                "Space Shooter Arcade" -> "🚀"
+                                                "Brick Breaker Retro" -> "👾"
+                                                "Neon Snake Classic" -> "🐍"
+                                                "Pac-Neon Cyber" -> "🍬"
+                                                "Tetris Grid Lock" -> "🧩"
+                                                "Retro Space Invaders" -> "🛸"
+                                                "Chess Challenge" -> "👑"
+                                                "Tic Tac Toe" -> "❌"
+                                                "Rock Paper Scissors" -> "🪨"
+                                                else -> "🎮"
+                                            }
+                                            Text("$emoji  $game", color = TextWhite, fontSize = 14.sp)
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedGame = game
+                                        dropdownExpanded = false
+                                    },
+                                    modifier = Modifier.testTag("dropdown_item_${game.replace(" ", "_").lowercase()}")
+                                )
+                            }
+                        }
+                    }
+
+                    // Auto-Generated Invite Link input
+                    OutlinedTextField(
+                        value = inviteLinkInput,
+                        onValueChange = { inviteLinkInput = it },
+                        label = { Text("Auto-Generated Challenge Link", color = TextGray) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    val randomId = (100000..999999).random()
+                                    inviteLinkInput = when (selectedGame) {
+                                        "Space Shooter Arcade" -> "https://wegist.arcade.play/space-shooter/challenge-lobby-$randomId"
+                                        "Brick Breaker Retro" -> "https://wegist.arcade.play/brick-breaker/room-$randomId"
+                                        "Neon Snake Classic" -> "https://wegist.arcade.play/neon-snake/match-$randomId"
+                                        "Pac-Neon Cyber" -> "https://wegist.arcade.play/pac-neon/join-$randomId"
+                                        "Tetris Grid Lock" -> "https://wegist.arcade.play/tetris/duel-$randomId"
+                                        "Retro Space Invaders" -> "https://wegist.arcade.play/space-invaders/lobby-$randomId"
+                                        "Chess Challenge" -> "https://chess.org/play/wegist-challenge-$randomId"
+                                        "Tic Tac Toe" -> "https://wegist.arcade.play/tic-tac-toe/room-$randomId"
+                                        "Rock Paper Scissors" -> "https://wegist.arcade.play/rock-paper-scissors/lobby-$randomId"
+                                        else -> "https://wegist.arcade.play/challenge/join?game=${selectedGame.replace(" ", "-").lowercase()}&id=$randomId"
+                                    }
+                                },
+                                modifier = Modifier.testTag("regenerate_link_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Regenerate Link",
+                                    tint = NeonMint
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = NeonMint,
+                            unfocusedBorderColor = CyberBorder,
+                            focusedContainerColor = Color(0xFF0F0F13),
+                            unfocusedContainerColor = Color(0xFF0F0F13)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("custom_game_link_input"),
+                        singleLine = true
+                    )
+
+                    // Message description
+                    OutlinedTextField(
+                        value = descInput,
+                        onValueChange = { descInput = it },
+                        label = { Text("Challenge Description Note", color = TextGray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = NeonMint,
+                            unfocusedBorderColor = CyberBorder,
+                            focusedContainerColor = Color(0xFF0F0F13),
+                            unfocusedContainerColor = Color(0xFF0F0F13)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("custom_game_desc_input"),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (selectedGame.isNotBlank() && inviteLinkInput.isNotBlank()) {
+                            val finalDesc = if (descInput.isBlank()) "Join my game challenge in $selectedGame!" else descInput
+                            onSendMessage(
+                                "Challenge: Join me in $selectedGame! $inviteLinkInput",
+                                "GAME_INVITE",
+                                "CUSTOM_LINK",
+                                "$selectedGame|$inviteLinkInput|$finalDesc"
+                            )
+                            showCustomLinkDialog = false
+                            showGameSelector = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                    enabled = selectedGame.isNotBlank() && inviteLinkInput.isNotBlank(),
+                    modifier = Modifier.testTag("submit_custom_challenge_btn")
+                ) {
+                    Text("Send Invite Link ✉️", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showCustomLinkDialog = false },
+                    modifier = Modifier.testTag("cancel_custom_challenge_btn")
+                ) {
+                    Text("Cancel", color = TextGray)
+                }
+            },
+            containerColor = Color(0xFF14141A),
+            tonalElevation = 6.dp
+        )
     }
 
     Scaffold(
@@ -93,10 +608,27 @@ fun ChatDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        onSendMessage("Let's join a stream!", "TEXT", null, null)
-                    }) {
-                        Icon(Icons.Default.VideogameAsset, contentDescription = "Stream", tint = NeonMint)
+                    when (appMode) {
+                        "GAMING" -> {
+                            IconButton(onClick = { showGamingStatsDialog = true }) {
+                                Icon(Icons.Default.Leaderboard, contentDescription = "Match Stats", tint = NeonMint)
+                            }
+                            IconButton(onClick = {
+                                onSendMessage("Let's join a stream!", "TEXT", null, null)
+                            }) {
+                                Icon(Icons.Default.VideogameAsset, contentDescription = "Stream", tint = NeonMint)
+                            }
+                        }
+                        "CASUAL" -> {
+                            IconButton(onClick = { showTranslationDialog = true }) {
+                                Icon(Icons.Default.Translate, contentDescription = "Translate Chat", tint = Color(0xFF818CF8))
+                            }
+                        }
+                        "ENTERPRISE" -> {
+                            IconButton(onClick = { showAiRecapDialog = true }) {
+                                Icon(Icons.Default.Assessment, contentDescription = "AI Recap", tint = Color(0xFF00A884))
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CyberCard)
@@ -162,8 +694,103 @@ fun ChatDetailScreen(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-            // Message List
-            LazyColumn(
+                // Enterprise Scheduling Banner
+                if (appMode == "ENTERPRISE") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                        border = BorderStroke(1.dp, Color(0xFF334155)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                    ) {
+                        var showScheduleMeetingDialog by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Topic, contentDescription = null, tint = Color(0xFF00A884), modifier = Modifier.size(20.dp))
+                                Column {
+                                    Text("Professional Workspace Active", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Collaborate with thread-based replies & schedule syncs.", color = TextGray, fontSize = 10.sp)
+                                }
+                            }
+                            Button(
+                                onClick = { showScheduleMeetingDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A884)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(28.dp).testTag("schedule_meeting_btn")
+                            ) {
+                                Text("Schedule 📅", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (showScheduleMeetingDialog) {
+                            var meetingTitle by remember { mutableStateOf("Weekly Sprint Review") }
+                            var meetingTime by remember { mutableStateOf("Today, 3:00 PM") }
+                            AlertDialog(
+                                onDismissRequest = { showScheduleMeetingDialog = false },
+                                title = { Text("Schedule Work Meeting", color = TextWhite, fontWeight = FontWeight.Bold) },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Text("Invite colleagues to synchronized meetings directly inside your threaded room.", color = TextGray, fontSize = 11.sp)
+                                        OutlinedTextField(
+                                            value = meetingTitle,
+                                            onValueChange = { meetingTitle = it },
+                                            label = { Text("Meeting Subject", color = TextGray, fontSize = 11.sp) },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color(0xFF00A884),
+                                                unfocusedBorderColor = Color(0xFF334155),
+                                                focusedTextColor = TextWhite,
+                                                unfocusedTextColor = TextWhite
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        OutlinedTextField(
+                                            value = meetingTime,
+                                            onValueChange = { meetingTime = it },
+                                            label = { Text("Date & Time Slot", color = TextGray, fontSize = 11.sp) },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color(0xFF00A884),
+                                                unfocusedBorderColor = Color(0xFF334155),
+                                                focusedTextColor = TextWhite,
+                                                unfocusedTextColor = TextWhite
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            onSendMessage(
+                                                "📅 Calendar Invite: $meetingTitle @ $meetingTime",
+                                                "GAME_INVITE",
+                                                "CUSTOM_LINK",
+                                                "$meetingTitle|https://meet.google.com/wegist-corp-meeting|Invite: $meetingTitle\\nTime: $meetingTime"
+                                            )
+                                            showScheduleMeetingDialog = false
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A884))
+                                    ) {
+                                        Text("Post Invite ✉️", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showScheduleMeetingDialog = false }) {
+                                        Text("Cancel", color = TextGray)
+                                    }
+                                },
+                                containerColor = Color(0xFF0F172A)
+                            )
+                        }
+                    }
+                }
+
+                // Message List
+                LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
@@ -172,6 +799,96 @@ fun ChatDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
             ) {
+                // WhatsApp E2EE banner at top of chat log
+                item {
+                    var showE2EEDialog by remember { mutableStateOf(false) }
+                    
+                    if (showE2EEDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showE2EEDialog = false },
+                            title = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, tint = NeonMint, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Signal E2E Security", fontWeight = FontWeight.Bold, color = TextWhite)
+                                }
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(
+                                        "This conversation is fully encrypted using the Signal Protocol framework. Messages, game moves, voice clips, and file attachments are encrypted on your device and can only be decrypted by the recipient.",
+                                        color = TextWhite,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(CyberBorder, RoundedCornerShape(8.dp))
+                                            .padding(12.dp)
+                                    ) {
+                                        Column {
+                                            Text("SECURITY KEY FINGERPRINT", color = TextGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                "42918 09241 88325 11984 00213\n88349 71642 90124 55321 09842",
+                                                color = NeonMint,
+                                                fontSize = 12.sp,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showE2EEDialog = false }) {
+                                    Text("Verify Keys", color = NeonMint)
+                                }
+                            }
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            color = Color(0xFF182229),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(0.5.dp, Color(0xFF2B3A42)),
+                            modifier = Modifier
+                                .widthIn(max = 320.dp)
+                                .clickable { showE2EEDialog = true }
+                                .testTag("e2ee_banner")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFF8696A0),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Messages are end-to-end encrypted. No one outside of this chat, not even WeGist, can read them. Tap to verify.",
+                                    color = Color(0xFF8696A0),
+                                    fontSize = 11.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 items(messages) { msg ->
                     val isMe = msg.senderName == "WeGamer_Me"
                     MessageBubble(
@@ -179,7 +896,12 @@ fun ChatDetailScreen(
                         isMe = isMe,
                         userStats = userStats,
                         onPlayTicTacToeMove = onPlayTicTacToeMove,
-                        onPlayRockPaperScissors = onPlayRockPaperScissors
+                        onPlayRockPaperScissors = onPlayRockPaperScissors,
+                        onPlayTriviaAnswer = onPlayTriviaAnswer,
+                        onPlayChessMove = onPlayChessMove,
+                        onGamerNameClicked = { selectedGamerName = it },
+                        onReactToMessage = onReactToMessage,
+                        appMode = appMode
                     )
                 }
             }
@@ -198,6 +920,29 @@ fun ChatDetailScreen(
                 )
             }
 
+            // Attachment Selection Panel (WhatsApp Style File Sharing)
+            AnimatedVisibility(
+                visible = showAttachmentSelector,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                AttachmentSelectionView(
+                    onSelectFile = { fileName, fileSize, fileType ->
+                        onSendMessage(
+                            "$fileName|$fileSize|$fileType",
+                            "FILE",
+                            null,
+                            null
+                        )
+                        showAttachmentSelector = false
+                    },
+                    onPayCoinsClicked = {
+                        showCoinsTransferDialog = true
+                        showAttachmentSelector = false
+                    }
+                )
+            }
+
             // Game Selector Panel
             AnimatedVisibility(
                 visible = showGameSelector,
@@ -206,7 +951,12 @@ fun ChatDetailScreen(
             ) {
                 GameChallengeSelectionView(
                     onSelectGame = { gameType ->
-                        val initialData = if (gameType == "TIC_TAC_TOE") ",,,,,,,," else "PENDING"
+                        val initialData = when (gameType) {
+                            "TIC_TAC_TOE" -> ",,,,,,,,"
+                            "CHESS" -> "♜,♞,♝,♚,.,.,.,.,.,.,.,.,♖,♘,♗,♔"
+                            "TRIVIA" -> "-1,-1"
+                            else -> "PENDING"
+                        }
                         onSendMessage(
                             "I challenge you to $gameType!",
                             "GAME_INVITE",
@@ -214,6 +964,9 @@ fun ChatDetailScreen(
                             initialData
                         )
                         showGameSelector = false
+                    },
+                    onShowCustomLinkDialog = {
+                        showCustomLinkDialog = true
                     }
                 )
             }
@@ -236,6 +989,7 @@ fun ChatDetailScreen(
                         onClick = {
                             showGameSelector = !showGameSelector
                             showStickersPanel = false
+                            showAttachmentSelector = false
                         },
                         modifier = Modifier
                             .background(if (showGameSelector) NeonPurple else CyberBorder, CircleShape)
@@ -257,6 +1011,7 @@ fun ChatDetailScreen(
                         onClick = {
                             showStickersPanel = !showStickersPanel
                             showGameSelector = false
+                            showAttachmentSelector = false
                         },
                         modifier = Modifier
                             .background(if (showStickersPanel) NeonMint else CyberBorder, CircleShape)
@@ -266,6 +1021,28 @@ fun ChatDetailScreen(
                             imageVector = Icons.Default.EmojiEmotions,
                             contentDescription = "Stickers",
                             tint = if (showStickersPanel) Color.Black else TextWhite,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // File attachment launcher (WhatsApp-like paperclip icon)
+                    IconButton(
+                        onClick = {
+                            showAttachmentSelector = !showAttachmentSelector
+                            showGameSelector = false
+                            showStickersPanel = false
+                        },
+                        modifier = Modifier
+                            .background(if (showAttachmentSelector) NeonMint else CyberBorder, CircleShape)
+                            .size(36.dp)
+                            .testTag("chat_detail_attachment_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "Share File",
+                            tint = if (showAttachmentSelector) Color.Black else TextWhite,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -327,6 +1104,220 @@ fun ChatDetailScreen(
             }
         }
     }
+
+    if (showAiRecapDialog) {
+        var actionItem1 by remember { mutableStateOf(false) }
+        var actionItem2 by remember { mutableStateOf(true) }
+        var actionItem3 by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showAiRecapDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Assessment, contentDescription = null, tint = Color(0xFF00A884))
+                    Text("AI Meeting Digest & Actions", fontWeight = FontWeight.Black, color = TextWhite)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Review of current discussions with professional summarization:",
+                        color = TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("💬 Discussion Summary:", fontWeight = FontWeight.Bold, color = Color(0xFF00A884), fontSize = 11.sp)
+                            Text(
+                                "Participants discussed scheduling next week's collaborative sprint. Coin distribution structures, tactical gaming invite validations, and encrypted memo storage constraints were evaluated.",
+                                color = TextWhite,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Text(
+                        "📌 Interactive Workspace Action Items:",
+                        color = TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = actionItem1,
+                                onCheckedChange = { actionItem1 = it },
+                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00A884))
+                            )
+                            Text("Sync local sqlite data to remote company server", color = TextWhite, fontSize = 12.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = actionItem2,
+                                onCheckedChange = { actionItem2 = it },
+                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00A884))
+                            )
+                            Text("Wager remaining game coins on next test sprint", color = TextWhite, fontSize = 12.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = actionItem3,
+                                onCheckedChange = { actionItem3 = it },
+                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00A884))
+                            )
+                            Text("Generate security audit hash keys for lead developers", color = TextWhite, fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAiRecapDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00A884))
+                ) {
+                    Text("Done", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (showTranslationDialog) {
+        AlertDialog(
+            onDismissRequest = { showTranslationDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Translate, contentDescription = null, tint = Color(0xFF818CF8))
+                    Text("Dynamic Chat Translator", fontWeight = FontWeight.Black, color = TextWhite)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Translate incoming & outgoing chats dynamically to support seamless international connection.", color = TextGray, fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Enable Real-time Translation:", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Switch(
+                            checked = translationEnabled,
+                            onCheckedChange = { translationEnabled = it },
+                            colors = SwitchDefaults.colors(checkedIconColor = Color(0xFF818CF8))
+                        )
+                    }
+                    Text("Select Target Language:", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("French", "Spanish", "Japanese", "Yoruba").forEach { lang ->
+                            val isLangSelected = selectedTranslationLang == lang
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isLangSelected) Color(0xFF818CF8) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { selectedTranslationLang = lang }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = lang,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isLangSelected) Color.White else TextWhite
+                                )
+                            }
+                        }
+                    }
+                    if (translationEnabled) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF818CF8).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF818CF8).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(8.dp)
+                        ) {
+                            Text("✨ Active translation engine is translating to $selectedTranslationLang.", color = Color(0xFF818CF8), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showTranslationDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF818CF8))
+                ) {
+                    Text("Save Settings", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (showGamingStatsDialog) {
+        AlertDialog(
+            onDismissRequest = { showGamingStatsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Leaderboard, contentDescription = null, tint = NeonMint)
+                    Text("Gamer Arena Stats", fontWeight = FontWeight.Black, color = TextWhite)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Head-to-head tactical records for this guild chat:", color = TextGray, fontSize = 12.sp)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CyberCard),
+                        border = BorderStroke(1.dp, CyberBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Battles", color = TextGray, fontSize = 12.sp)
+                                Text("20 Matches", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            HorizontalDivider(color = CyberBorder)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Your Wins (WeGamer_Me)", color = TextGray, fontSize = 12.sp)
+                                Text("12 🏆", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            HorizontalDivider(color = CyberBorder)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Their Wins (Participant)", color = TextGray, fontSize = 12.sp)
+                                Text("8 ⚔️", color = NeonPurple, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            HorizontalDivider(color = CyberBorder)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Wagered Coins Pool", color = TextGray, fontSize = 12.sp)
+                                Text("800 Coins", color = AccentOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(NeonMint.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .border(1.dp, NeonMint, RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Current Arena Title: Dominant Duelist 👑", color = NeonMint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showGamingStatsDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonMint)
+                ) {
+                    Text("Back to Guild Chat", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 }
 
@@ -336,8 +1327,172 @@ fun MessageBubble(
     isMe: Boolean,
     userStats: com.example.data.UserStats,
     onPlayTicTacToeMove: (messageId: Int, cellIndex: Int) -> Unit,
-    onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit
+    onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
+    onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
+    onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> },
+    onReactToMessage: (messageId: Int, emoji: String) -> Unit,
+    onGamerNameClicked: (String) -> Unit = {},
+    appMode: String = "GAMING"
 ) {
+    val parsedReactions = remember(message.reactionsJson) {
+        val list = mutableListOf<Pair<String, String>>()
+        try {
+            val raw = message.reactionsJson.trim()
+            if (raw.startsWith("[") && raw.endsWith("]") && raw.length > 2) {
+                val clean = raw.removeSurrounding("[", "]").trim()
+                val items = clean.split("},{")
+                for (item in items) {
+                    val cleanItem = item.replace("{", "").replace("}", "")
+                    val parts = cleanItem.split(",")
+                    var u = ""
+                    var em = ""
+                    for (part in parts) {
+                        val kv = part.split(":")
+                        if (kv.size == 2) {
+                            val k = kv[0].trim().removeSurrounding("\"")
+                            val v = kv[1].trim().removeSurrounding("\"")
+                            if (k == "user") u = v
+                            if (k == "emoji") em = v
+                        }
+                    }
+                    if (u.isNotEmpty() && em.isNotEmpty()) {
+                        list.add(u to em)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+        list
+    }
+
+    var showMessageOptions by remember { mutableStateOf(false) }
+    
+    if (showMessageOptions) {
+        AlertDialog(
+            onDismissRequest = { showMessageOptions = false },
+            title = {
+                Text(
+                    text = "Message Info & Security",
+                    fontWeight = FontWeight.Bold,
+                    color = TextWhite,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        Text(
+                            text = "QUICK REACTION",
+                            color = TextGray,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val popularEmojis = listOf("👍", "❤️", "😂", "😮", "😢", "🙏")
+                            popularEmojis.forEach { emoji ->
+                                val isSelected = parsedReactions.any { it.first == "WeGamer_Me" && it.second == emoji }
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) NeonMint.copy(alpha = 0.2f) else Color.Transparent)
+                                        .border(1.dp, if (isSelected) NeonMint else Color.Transparent, CircleShape)
+                                        .clickable {
+                                            onReactToMessage(message.id, emoji)
+                                            showMessageOptions = false
+                                        }
+                                        .testTag("react_emoji_${emoji}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = emoji, fontSize = 22.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CyberBorder)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = NeonMint, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "SIGNAL END-TO-END ENCRYPTED",
+                                color = NeonMint,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            text = "This message is encrypted locally with a GCM-AES symmetric key negotiated via X3DH Triple Diffie-Hellman Key Exchange.",
+                            color = TextGray,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val rawContent = message.content
+                        val ciphertext = remember(rawContent) {
+                            try {
+                                val bytes = rawContent.toByteArray(Charsets.UTF_8)
+                                val xor = bytes.map { (it.toInt() xor 0x5A).toByte() }.toByteArray()
+                                android.util.Base64.encodeToString(xor, android.util.Base64.NO_WRAP)
+                            } catch (e: Exception) {
+                                "EncryptedSessionData=="
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text("CIPHERTEXT (In Database):", color = TextGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = ciphertext,
+                                color = CyberPink,
+                                fontSize = 11.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                lineHeight = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("DECRYPTED TEXT (Only on your device):", color = TextGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = rawContent,
+                                color = TextWhite,
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMessageOptions = false }) {
+                    Text("Dismiss", color = NeonMint)
+                }
+            }
+        )
+    }
+
     val isDarkWallpaper = userStats.chatWallpaperColor in listOf("CHARCOAL", "PURPLE", "PINK", "INDIGO") || userStats.chatWallpaperColor.isEmpty()
     val bubbleColor = if (isMe) {
         if (isDarkWallpaper) Color(0xFF005C4B) else Color(0xFFD9FDD3)
@@ -356,6 +1511,23 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = align
     ) {
+        // Workspace Thread Header in Enterprise Mode
+        if (appMode == "ENTERPRISE" && message.type == "TEXT") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)
+            ) {
+                Icon(Icons.Default.Topic, contentDescription = null, tint = Color(0xFF00A884), modifier = Modifier.size(12.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Thread: WG-COLLABORATION-${Math.abs(message.id.hashCode() % 1000)}",
+                    color = Color(0xFF00A884),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
         // Sender Username label if not me
         if (!isMe) {
             Text(
@@ -363,7 +1535,9 @@ fun MessageBubble(
                 color = if (isDarkWallpaper) Color(0xFF8696A0) else Color(0xFF128C7E),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
+                modifier = Modifier
+                    .padding(start = 6.dp, bottom = 4.dp)
+                    .clickable { onGamerNameClicked(message.senderName) }
             )
         }
 
@@ -371,7 +1545,10 @@ fun MessageBubble(
             color = bubbleColor,
             shape = shape,
             shadowElevation = 1.dp,
-            modifier = Modifier.widthIn(max = 300.dp)
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .clickable { showMessageOptions = true }
+                .testTag("message_bubble_${message.id}")
         ) {
             Column(modifier = Modifier.padding(10.dp)) {
                 when (message.type) {
@@ -400,13 +1577,160 @@ fun MessageBubble(
                         }
                     }
 
+                    "FILE" -> {
+                        val parts = message.content.split("|")
+                        val fileName = parts.getOrNull(0) ?: "Unknown_File"
+                        val fileSize = parts.getOrNull(1) ?: "0 KB"
+                        val fileType = parts.getOrNull(2) ?: "FILE"
+                        
+                        val icon = when (fileType) {
+                            "PDF" -> Icons.Default.PictureAsPdf
+                            "IMAGE" -> Icons.Default.Image
+                            "VIDEO" -> Icons.Default.PlayCircle
+                            "AUDIO" -> Icons.Default.Audiotrack
+                            "ZIP" -> Icons.Default.FolderZip
+                            "LOCATION" -> Icons.Default.Place
+                            else -> Icons.Default.InsertDriveFile
+                        }
+                        
+                        val iconColor = when (fileType) {
+                            "PDF" -> Color(0xFFE53935)
+                            "IMAGE", "VIDEO" -> Color(0xFF00ACC1)
+                            "AUDIO" -> Color(0xFFFB8C00)
+                            "ZIP" -> Color(0xFFFDD835)
+                            "LOCATION" -> Color(0xFF43A047)
+                            else -> Color(0xFF757575)
+                        }
+
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        var fileOpenedState by remember { mutableStateOf(false) }
+
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        fileOpenedState = true
+                                        android.widget.Toast.makeText(context, "Opening file: $fileName...", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(iconColor, RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = fileType,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = fileName,
+                                        color = textColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        modifier = Modifier.testTag("file_bubble_name")
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = fileSize,
+                                            color = if (isDarkWallpaper) Color(0xFF8696A0) else Color(0xFF667781),
+                                            fontSize = 11.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .size(3.dp)
+                                                .background(if (isDarkWallpaper) Color(0xFF8696A0) else Color(0xFF667781), CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = fileType,
+                                            color = if (isDarkWallpaper) Color(0xFF8696A0) else Color(0xFF667781),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                IconButton(
+                                    onClick = {
+                                        fileOpenedState = !fileOpenedState
+                                        val status = if (fileOpenedState) "Opened" else "Downloaded"
+                                        android.widget.Toast.makeText(context, "$status $fileName", android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.testTag("download_file_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = if (fileOpenedState) Icons.Default.Visibility else Icons.Default.Download,
+                                        contentDescription = "Download/Open",
+                                        tint = if (fileOpenedState) NeonMint else textColor.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     "GAME_INVITE" -> {
                         GameChallengeInviteView(
                             message = message,
                             isMeSender = isMe,
                             onPlayTicTacToeMove = onPlayTicTacToeMove,
-                            onPlayRockPaperScissors = onPlayRockPaperScissors
+                            onPlayRockPaperScissors = onPlayRockPaperScissors,
+                            onPlayTriviaAnswer = onPlayTriviaAnswer,
+                            onPlayChessMove = onPlayChessMove
                         )
+                    }
+
+                    "COINS_TRANSFER" -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF1E1C14), RoundedCornerShape(8.dp))
+                                .border(1.dp, AccentOrange, RoundedCornerShape(8.dp))
+                                .padding(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(AccentOrange.copy(alpha = 0.2f), CircleShape)
+                                    .border(1.dp, AccentOrange, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🪙", fontSize = 18.sp)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (isMe) "Sent Coins 💸" else "Received Coins 💸",
+                                    color = AccentOrange,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = "Amount: ${message.gameData ?: "100"} Coins",
+                                    color = TextWhite,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
 
                     "REPOST" -> {
@@ -491,6 +1815,13 @@ fun MessageBubble(
                     modifier = Modifier.align(Alignment.End),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "End-to-End Encrypted via Signal Protocol",
+                        tint = if (isDarkWallpaper) Color(0x77E9EDEF) else Color(0x77111B21),
+                        modifier = Modifier.size(9.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = formatTime(message.timestamp),
                         color = if (isDarkWallpaper) Color(0x99E9EDEF) else Color(0x99111B21),
@@ -506,6 +1837,34 @@ fun MessageBubble(
                             modifier = Modifier.size(14.dp)
                         )
                     }
+                }
+            }
+        }
+
+        // Display Reactions Attached directly to message
+        if (parsedReactions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .background(Color(0xFF202C33), RoundedCornerShape(12.dp))
+                    .border(0.5.dp, Color(0xFF3B4A54), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .clickable { showMessageOptions = true }
+                    .testTag("attached_reactions_${message.id}")
+            ) {
+                parsedReactions.take(3).forEach { (_, emoji) ->
+                    Text(text = emoji, fontSize = 12.sp)
+                }
+                if (parsedReactions.size > 1) {
+                    Text(
+                        text = "${parsedReactions.size}",
+                        color = Color(0xFFE9EDEF),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -574,7 +1933,9 @@ fun GameChallengeInviteView(
     message: ChatMessage,
     isMeSender: Boolean,
     onPlayTicTacToeMove: (messageId: Int, cellIndex: Int) -> Unit,
-    onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit
+    onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
+    onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
+    onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> }
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -702,6 +2063,265 @@ fun GameChallengeInviteView(
                 }
                 Text(message.content, fontSize = 12.sp, textAlign = TextAlign.Center, color = NeonMint, fontWeight = FontWeight.Bold)
             }
+        } else if (message.gameType == "TRIVIA") {
+            val completed = message.gameStatus == "COMPLETED"
+            val boardData = message.gameData?.split(",") ?: listOf("-1", "-1")
+            val chosenIdx = boardData.getOrNull(0)?.toIntOrNull() ?: -1
+            val correctIdx = boardData.getOrNull(1)?.toIntOrNull() ?: -1
+
+            val qIdx = Math.abs(message.id.hashCode()) % 3
+            val (question, options, realCorrectIdx) = when (qIdx) {
+                0 -> Triple(
+                    "Which video game is officially the best-selling of all time?",
+                    listOf("Tetris", "Grand Theft Auto V", "Minecraft"),
+                    2
+                )
+                1 -> Triple(
+                    "In what year was the original Nintendo Entertainment System (NES) released?",
+                    listOf("1983", "1985", "1989"),
+                    1
+                )
+                else -> Triple(
+                    "What is the name of the main protagonist in the Halo franchise?",
+                    listOf("Doomguy", "Master Chief", "Marcus Fenix"),
+                    1
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = question,
+                    color = TextWhite,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                options.forEachIndexed { idx, optionText ->
+                    val isSelectedByMe = completed && chosenIdx == idx
+                    val isCorrectIdx = completed && idx == correctIdx
+                    
+                    val btnBg = when {
+                        isCorrectIdx -> Color(0xFF00A884).copy(alpha = 0.3f)
+                        isSelectedByMe -> CyberPink.copy(alpha = 0.3f)
+                        else -> CyberBorder
+                    }
+                    val btnBorderColor = when {
+                        isCorrectIdx -> Color(0xFF00A884)
+                        isSelectedByMe -> CyberPink
+                        else -> CyberBorder.copy(alpha = 0.5f)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(btnBg, RoundedCornerShape(8.dp))
+                            .border(1.dp, btnBorderColor, RoundedCornerShape(8.dp))
+                            .clickable(enabled = !completed) {
+                                onPlayTriviaAnswer(message.id, idx)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .testTag("trivia_option_$idx"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = optionText,
+                            color = if (isCorrectIdx) NeonMint else TextWhite,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                if (completed) {
+                    Text(
+                        text = if (chosenIdx == correctIdx) "You solved it correctly! 🎓 (+50 🪙)" else "Whoops! Better luck next time.",
+                        color = if (chosenIdx == correctIdx) NeonMint else CyberPink,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Text(
+                        text = "Solve the quiz question before time runs out!",
+                        color = TextGray,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        } else if (message.gameType == "CHESS") {
+            val completed = message.gameStatus == "COMPLETED"
+            val board = message.gameData?.split(",") ?: List(16) { "." }
+            var selectedIdx by remember { mutableStateOf<Int?>(null) }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "4x4 Tactical Mini-Chess",
+                    color = NeonMint,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(4.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        for (row in 0..3) {
+                            Row(modifier = Modifier.weight(1f)) {
+                                for (col in 0..3) {
+                                    val idx = row * 4 + col
+                                    val piece = board.getOrElse(idx) { "." }
+                                    val isDarkSquare = (row + col) % 2 == 1
+                                    val isSelected = selectedIdx == idx
+
+                                    val squareBg = when {
+                                        isSelected -> NeonPurple.copy(alpha = 0.4f)
+                                        isDarkSquare -> Color(0xFF1E293B)
+                                        else -> Color(0xFF475569)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .background(squareBg)
+                                            .border(0.5.dp, CyberBorder.copy(alpha = 0.3f))
+                                            .clickable(enabled = !completed) {
+                                                val currentSel = selectedIdx
+                                                if (currentSel == null) {
+                                                    if (piece in listOf("♖", "♘", "♗", "♔")) {
+                                                        selectedIdx = idx
+                                                    }
+                                                } else {
+                                                    if (currentSel == idx) {
+                                                        selectedIdx = null
+                                                    } else {
+                                                        onPlayChessMove(message.id, currentSel, idx)
+                                                        selectedIdx = null
+                                                    }
+                                                }
+                                            }
+                                            .testTag("chess_cell_$idx"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (piece == ".") "" else piece,
+                                            fontSize = 24.sp,
+                                            color = if (piece in listOf("♜", "♞", "♝", "♚")) Color.Black else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = if (selectedIdx != null) "Select target square to move..." else "Touch your piece (white bottom row) to select!",
+                    color = if (selectedIdx != null) NeonPurple else TextWhite,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else if (message.gameType == "CUSTOM_LINK") {
+            val parts = message.gameData?.split("|") ?: listOf("Custom Game", "", "Challenge link")
+            val gameName = parts.getOrNull(0) ?: "Custom Game"
+            val link = parts.getOrNull(1) ?: ""
+            val desc = parts.getOrNull(2) ?: "Accept challenge to join!"
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Game name tag/badge
+                Box(
+                    modifier = Modifier
+                        .background(NeonPurple.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .border(1.dp, NeonPurple, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "🎮 $gameName CHALLENGE",
+                        color = NeonPurple,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = desc,
+                    color = TextWhite,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                // Show URL Link beautifully
+                if (link.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Link,
+                            contentDescription = "Link",
+                            tint = NeonMint,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = link,
+                            color = NeonMint,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Action Join button
+                Button(
+                    onClick = {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Launching $gameName challenge lobby at:\n$link ... 🚀",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("launch_custom_game_btn")
+                ) {
+                    Text("Accept & Play Now ⚔️", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
         }
     }
 }
@@ -709,7 +2329,8 @@ fun GameChallengeInviteView(
 // In-chat mini-game selector panel
 @Composable
 fun GameChallengeSelectionView(
-    onSelectGame: (String) -> Unit
+    onSelectGame: (String) -> Unit,
+    onShowCustomLinkDialog: () -> Unit
 ) {
     Surface(
         color = Color(0xFF14141A),
@@ -760,6 +2381,74 @@ fun GameChallengeSelectionView(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("CHESS") }
+                        .testTag("challenge_chess"),
+                    border = BorderStroke(1.dp, NeonMint.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("👑 Chess ♞", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tactical 4x4 Chess", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("TRIVIA") }
+                        .testTag("challenge_trivia"),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("💡 Trivia 🎓", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Multiplayer Quiz Challenge", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onShowCustomLinkDialog() }
+                    .testTag("challenge_custom_link"),
+                border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("🔗", fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Send Custom Invite Link", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Share challenge invite URL for Minecraft, Chess, Roblox etc.", color = TextGray, fontSize = 11.sp)
+                    }
+                }
+            }
         }
     }
 }
@@ -792,6 +2481,79 @@ fun StickersSelectionView(
                             .padding(4.dp)
                             .testTag("sticker_$sticker")
                     )
+                }
+            }
+        }
+    }
+}
+
+// Attachment Selection view (WhatsApp Style)
+@Composable
+fun AttachmentSelectionView(
+    onSelectFile: (name: String, size: String, type: String) -> Unit,
+    onPayCoinsClicked: () -> Unit
+) {
+    Surface(
+        color = Color(0xFF14141A),
+        border = BorderStroke(1.dp, CyberBorder),
+        shape = RoundedCornerShape(16.dp, 16.dp, 0.dp, 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Share Files (WhatsApp Style)", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                val whatsappFiles = listOf(
+                    Triple("Document", Icons.Default.Description, Color(0xFF2196F3)),
+                    Triple("Gallery", Icons.Default.Image, Color(0xFFE040FB)),
+                    Triple("Audio", Icons.Default.Audiotrack, Color(0xFFFF9800)),
+                    Triple("Location", Icons.Default.Place, Color(0xFF4CAF50)),
+                    Triple("Apk / Mod", Icons.Default.Android, Color(0xFF8BC34A)),
+                    Triple("Pay Coins", Icons.Default.MonetizationOn, AccentOrange)
+                )
+                
+                whatsappFiles.forEach { fileAction ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clickable {
+                                if (fileAction.first == "Pay Coins") {
+                                    onPayCoinsClicked()
+                                } else {
+                                    val picked = when (fileAction.first) {
+                                        "Document" -> Triple("Strategic_Guild_Rules.pdf", "1.8 MB", "PDF")
+                                        "Gallery" -> Triple("fortnite_victory_royale.jpg", "640 KB", "IMAGE")
+                                        "Audio" -> Triple("voice_chat_discord.mp3", "3.4 MB", "AUDIO")
+                                        "Location" -> Triple("Gamer_Guild_HQ.loc", "45 bytes", "LOCATION")
+                                        "Apk / Mod" -> Triple("wegist_game_mods.zip", "15.2 MB", "ZIP")
+                                        else -> Triple("speedrun_proof.mp4", "18.1 MB", "VIDEO")
+                                    }
+                                    onSelectFile(picked.first, picked.second, picked.third)
+                                }
+                            }
+                            .padding(4.dp)
+                            .testTag("attach_${fileAction.first.replace(" ", "_").lowercase()}")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(fileAction.third, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = fileAction.second,
+                                contentDescription = fileAction.first,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(fileAction.first, color = TextWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

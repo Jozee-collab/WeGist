@@ -90,3 +90,58 @@ interface ReelDao {
     suspend fun clearAllReels()
 }
 
+@Dao
+interface FriendDao {
+    @Query("SELECT * FROM friends ORDER BY username ASC")
+    fun getAllFriends(): Flow<List<Friend>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFriend(friend: Friend)
+
+    @Query("DELETE FROM friends WHERE userId = :userId")
+    suspend fun deleteFriend(userId: String)
+
+    @Query("DELETE FROM friends")
+    suspend fun clearAllFriends()
+}
+
+@Dao
+interface FriendRequestDao {
+    @Query("SELECT * FROM friend_requests WHERE receiverId = :receiverId AND status = 'PENDING' ORDER BY timestamp DESC")
+    fun getPendingRequests(receiverId: String = "me"): Flow<List<FriendRequest>>
+
+    @Query("SELECT * FROM friend_requests WHERE senderId = :senderId ORDER BY timestamp DESC")
+    fun getSentRequests(senderId: String = "me"): Flow<List<FriendRequest>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRequest(request: FriendRequest)
+
+    @Update
+    suspend fun updateRequest(request: FriendRequest)
+
+    @Query("DELETE FROM friend_requests WHERE id = :requestId")
+    suspend fun deleteRequest(requestId: Int)
+
+    @Query("DELETE FROM friend_requests")
+    suspend fun clearAllRequests()
+}
+
+@Dao
+interface StoryDao {
+    @Query("SELECT * FROM stories ORDER BY timestamp DESC")
+    fun getAllStories(): Flow<List<Story>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStory(story: Story)
+
+    @Update
+    suspend fun updateStory(story: Story)
+
+    @Query("DELETE FROM stories WHERE id = :id")
+    suspend fun deleteStoryById(id: Int)
+
+    @Query("DELETE FROM stories")
+    suspend fun clearAllStories()
+}
+
+

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.Post
 import com.example.data.Reel
+import com.example.data.Story
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ import java.util.*
 fun PostsAndReelsScreen(
     posts: List<Post>,
     reels: List<Reel>,
+    stories: List<Story>,
     onAddPost: (String, String?) -> Unit,
     onLikePost: (Post) -> Unit,
     onAddPostComment: (Post) -> Unit,
@@ -56,13 +58,19 @@ fun PostsAndReelsScreen(
     onLikeReel: (Reel) -> Unit,
     onAddReelComment: (Reel) -> Unit,
     onViewReel: (Reel) -> Unit,
+    onAddStory: (String, String?) -> Unit,
+    onMarkStoryAsViewed: (Int) -> Unit,
     onShareContent: (chatId: String, contentType: String, author: String, content: String, mediaUrl: String?, note: String?) -> Unit,
     onSearchClicked: () -> Unit,
+    isDarkMode: Boolean = true,
+    onToggleTheme: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedSubTab by remember { mutableStateOf("POSTS") } // POSTS or REELS
     var showCreatePostDialog by remember { mutableStateOf(false) }
     var showCreateReelDialog by remember { mutableStateOf(false) }
+    var showCreateStoryDialog by remember { mutableStateOf(false) }
+    var activeStoryToShow by remember { mutableStateOf<Story?>(null) }
     var activeCommentPost by remember { mutableStateOf<Post?>(null) }
     var activeCommentReel by remember { mutableStateOf<Reel?>(null) }
     var activeSharePost by remember { mutableStateOf<Post?>(null) }
@@ -114,6 +122,18 @@ fun PostsAndReelsScreen(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
+                    IconButton(
+                        onClick = { onToggleTheme(!isDarkMode) },
+                        modifier = Modifier.size(28.dp).testTag("feed_theme_toggle_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                            contentDescription = "Toggle Theme",
+                            tint = TextWhite.copy(alpha = 0.8f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
                         onClick = onSearchClicked,
                         modifier = Modifier.size(28.dp).testTag("feed_search_btn")
@@ -175,6 +195,109 @@ fun PostsAndReelsScreen(
         if (selectedSubTab == "POSTS") {
             // POSTS / GISTS FEED
             Column(modifier = Modifier.fillMaxSize()) {
+                // --- STORIES/STATUS TRAY ---
+                Text(
+                    text = "STATUSES / STORIES",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonMint,
+                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
+                )
+                
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Add My Story trigger item
+                    item {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clickable { showCreateStoryDialog = true }
+                                .testTag("add_story_trigger")
+                        ) {
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_profile_me_1783282394572),
+                                    contentDescription = "My Avatar",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                        .border(2.dp, CyberBorder, CircleShape)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(NeonPurple)
+                                        .border(1.5.dp, CyberCard, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add Story",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("My Status", color = TextWhite, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    // Friends' Stories
+                    items(stories) { story ->
+                        val borderBrush = if (story.isViewed) {
+                            Brush.sweepGradient(listOf(TextGray.copy(alpha = 0.5f), TextGray.copy(alpha = 0.5f)))
+                        } else {
+                            Brush.sweepGradient(listOf(NeonMint, NeonPurple, NeonMint))
+                        }
+                        
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clickable {
+                                    activeStoryToShow = story
+                                    onMarkStoryAsViewed(story.id)
+                                }
+                                .testTag("story_item_${story.id}")
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Transparent)
+                                    .border(2.5.dp, borderBrush, CircleShape)
+                                    .padding(3.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_profile_me_1783282394572),
+                                    contentDescription = "${story.authorName}'s story",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (story.authorName.length > 10) story.authorName.take(8) + ".." else story.authorName,
+                                color = TextWhite,
+                                fontSize = 11.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = CyberBorder, thickness = 1.dp)
+
                 // Post Input Card at the top of Feed
                 Card(
                     modifier = Modifier
@@ -266,6 +389,23 @@ fun PostsAndReelsScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+
+    // CREATE STORY DIALOG
+    if (showCreateStoryDialog) {
+        CreateStoryDialog(
+            onAdd = onAddStory,
+            onDismiss = { showCreateStoryDialog = false }
+        )
+    }
+
+    // STORY VIEWER DIALOG
+    val currentStoryToShow = activeStoryToShow
+    if (currentStoryToShow != null) {
+        StoryViewerDialog(
+            story = currentStoryToShow,
+            onDismiss = { activeStoryToShow = null }
+        )
     }
 
     // CREATE POST DIALOG
@@ -1730,4 +1870,267 @@ fun ShareToChatDialog(
         containerColor = CyberCard,
         tonalElevation = 8.dp
     )
+}
+
+@Composable
+fun CreateStoryDialog(
+    onAdd: (String, String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var textContent by remember { mutableStateOf("") }
+    var selectedImageUrl by remember { mutableStateOf<String?>(null) }
+
+    val mockImageOptions = listOf(
+        Pair("img_retro_stream_thumbnail_1783282368689", "Space Arena"),
+        Pair("img_puzzle_stream_thumbnail_1783282381092", "Brick Breaker Grid"),
+        Pair("img_profile_me_1783282394572", "Co-op Lobby")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AddCircle,
+                    contentDescription = null,
+                    tint = NeonPurple,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Add to Gaming Story",
+                    color = TextWhite,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = textContent,
+                    onValueChange = { textContent = it },
+                    placeholder = { Text("What's happening in your game right now? 🎮", color = TextGray.copy(alpha = 0.5f), fontSize = 13.sp) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonPurple,
+                        unfocusedBorderColor = CyberBorder,
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .testTag("create_story_text_input")
+                )
+
+                Text(
+                    text = "Choose a gaming backdrop (Optional):",
+                    color = TextGray,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    mockImageOptions.forEach { (resName, label) ->
+                        val isSelected = selectedImageUrl == resName
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(60.dp)
+                                .background(CyberSlate, RoundedCornerShape(8.dp))
+                                .border(
+                                    2.dp,
+                                    if (isSelected) NeonPurple else CyberBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    selectedImageUrl = if (isSelected) null else resName
+                                }
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) NeonPurple else TextWhite,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (textContent.isNotBlank()) {
+                        onAdd(textContent, selectedImageUrl)
+                        onDismiss()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.testTag("submit_story_btn")
+            ) {
+                Text("Share", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextGray)
+            }
+        },
+        containerColor = CyberCard,
+        tonalElevation = 8.dp
+    )
+}
+
+@Composable
+fun StoryViewerDialog(
+    story: Story,
+    onDismiss: () -> Unit
+) {
+    var progress by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(story) {
+        val duration = 5000L
+        val interval = 50L
+        val steps = duration / interval
+        for (i in 1..steps) {
+            delay(interval)
+            progress = i.toFloat() / steps
+        }
+        onDismiss()
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(450.dp)
+                .testTag("story_viewer_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CyberSlate),
+            border = BorderStroke(1.dp, CyberBorder)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+                        .height(4.dp),
+                    color = NeonMint,
+                    trackColor = TextGray.copy(alpha = 0.3f)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_profile_me_1783282394572),
+                        contentDescription = "Avatar",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, NeonMint, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = story.authorName,
+                            color = TextWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "Gamer Status • Active Now",
+                            color = TextGray,
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextWhite
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                        .background(CyberCard, RoundedCornerShape(12.dp))
+                        .border(1.dp, CyberBorder, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (story.imageUrl != null) {
+                        Image(
+                            painter = painterResource(id = R.drawable.img_retro_stream_thumbnail_1783282368689),
+                            contentDescription = "Story image backdrop",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.6f))
+                        )
+                    }
+
+                    Text(
+                        text = story.textContent,
+                        color = TextWhite,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        tint = NeonMint,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Swipe up or reply to Status",
+                        color = NeonMint,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
 }
