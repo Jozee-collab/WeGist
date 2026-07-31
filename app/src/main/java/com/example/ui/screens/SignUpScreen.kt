@@ -44,6 +44,8 @@ fun SignUpScreen(
     onSignUpComplete: (type: String, username: String, value: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showTermsDialog by remember { mutableStateOf(false) }
+
     // Signup sequence steps:
     // 0: Welcome Onboarding
     // 1: Phone number registration
@@ -668,48 +670,65 @@ fun SignUpScreen(
                     ) {
                         when (step) {
                             0 -> {
-                                // STEP 0: Welcome Landing screen (Polished WhatsApp illustration style)
-                                Box(
-                                    modifier = Modifier
-                                        .size(120.dp)
-                                        .background(NeonMint.copy(alpha = 0.12f), CircleShape)
-                                        .border(2.5.dp, NeonMint, CircleShape),
-                                    contentAlignment = Alignment.Center
+                                // STEP 0: Welcome Landing screen
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Forum,
-                                        contentDescription = "WeGist Chats",
-                                        tint = NeonMint,
-                                        modifier = Modifier.size(54.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(110.dp)
+                                            .background(NeonMint.copy(alpha = 0.12f), CircleShape)
+                                            .border(2.5.dp, NeonMint, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Forum,
+                                            contentDescription = "WeGist Logo",
+                                            tint = NeonMint,
+                                            modifier = Modifier.size(50.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(18.dp))
+
+                                    Text(
+                                        text = "Welcome to WeGist",
+                                        color = TextWhiteDark,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 26.sp,
+                                        letterSpacing = (-0.5).sp
                                     )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Simple, secure, and reliable messaging combined with live stream views and interactive mini-games, encrypted end-to-end.",
+                                        color = TextGrayDark,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.clickable { showTermsDialog = true }.testTag("view_terms_link")
+                                    ) {
+                                        Icon(Icons.Default.Security, contentDescription = "Security", tint = NeonMint, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Tap \"Agree and continue\" to accept Terms of Service & Privacy Policy",
+                                            color = TextGrayDark,
+                                            fontSize = 11.sp,
+                                            textAlign = TextAlign.Center,
+                                            style = androidx.compose.ui.text.TextStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+                                        )
+                                    }
                                 }
-
-                                Text(
-                                    text = "Welcome to WeGist",
-                                    color = NeonMint,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 28.sp,
-                                    letterSpacing = (-0.5).sp
-                                )
-
-                                Text(
-                                    text = "Simple, secure, and reliable messaging combined with live stream views and interactive mini-games, encrypted end-to-end.",
-                                    color = TextGrayDark,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(24.dp))
-
-                                Text(
-                                    text = "Tap \"Agree and continue\" to accept the WeGist Terms of Service and Privacy Policy.",
-                                    color = TextGrayDark.copy(alpha = 0.7f),
-                                    fontSize = 11.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp)
-                                )
                             }
 
                             1 -> {
@@ -1164,6 +1183,67 @@ fun SignUpScreen(
                 }
             }
         }
+    }
+
+    // --- PLAY STORE COMPLIANCE: TERMS OF SERVICE & PRIVACY POLICY DIALOG ---
+    if (showTermsDialog) {
+        AlertDialog(
+            onDismissRequest = { showTermsDialog = false },
+            containerColor = CyberCardDark,
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = NeonMint, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Terms of Service & Privacy Policy", color = TextWhiteDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                LazyColumn(modifier = Modifier.height(280.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        Text("Play Store Safety & Data Policy (v1.0.4)", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                    item {
+                        Text(
+                            "1. Data Security & Encryption:\nWeGist uses Firebase Authentication and TLS 1.3 encryption to protect user credentials, phone numbers, and communication tokens.",
+                            color = TextGrayDark,
+                            fontSize = 12.sp
+                        )
+                    }
+                    item {
+                        Text(
+                            "2. Community Safety & Moderation:\nWeGist strictly prohibits hate speech, illegal content, harassment, and unauthorized commercial spam. Violators will face immediate account termination.",
+                            color = TextGrayDark,
+                            fontSize = 12.sp
+                        )
+                    }
+                    item {
+                        Text(
+                            "3. User Data Deletion Rights (GDPR/Play Policy):\nUsers have full control over their data. You can request complete account and data deletion at any time in Profile Settings.",
+                            color = TextGrayDark,
+                            fontSize = 12.sp
+                        )
+                    }
+                    item {
+                        Text(
+                            "4. Age Requirement:\nYou must be at least 13 years old (or the legal minimum age in your jurisdiction) to use WeGist services.",
+                            color = TextGrayDark,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showTermsDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonMint, contentColor = Color.Black),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("accept_terms_btn")
+                ) {
+                    Text("I AGREE & ACCEPT", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 

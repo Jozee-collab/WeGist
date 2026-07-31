@@ -1017,6 +1017,107 @@ class WeGistViewModel(
         }
     }
 
+    fun performDailyCheckIn() {
+        viewModelScope.launch {
+            val me = userStats.value
+            val now = System.currentTimeMillis()
+            val oneDayMillis = 24 * 60 * 60 * 1000L
+            val lastCheckIn = me.lastCheckInTime
+            
+            var currentStreak = me.dailyStreak
+            if (lastCheckIn > 0) {
+                val diff = now - lastCheckIn
+                if (diff in oneDayMillis..(oneDayMillis * 2)) {
+                    currentStreak += 1
+                } else if (diff > oneDayMillis * 2) {
+                    currentStreak = 1
+                } else {
+                    // Already checked in today
+                    return@launch
+                }
+            } else {
+                currentStreak = 1
+            }
+            
+            val multiplier = minOf(5, currentStreak)
+            val rewardCoins = 100 * multiplier
+            
+            repository.insertUserStats(
+                me.copy(
+                    dailyStreak = currentStreak,
+                    lastCheckInTime = now,
+                    coins = me.coins + rewardCoins
+                )
+            )
+        }
+    }
+
+    fun enterReferralCode(code: String): Boolean {
+        val cleanCode = code.trim().uppercase()
+        if (cleanCode.isEmpty() || cleanCode == userStats.value.referralCode) {
+            return false
+        }
+        viewModelScope.launch {
+            val me = userStats.value
+            repository.insertUserStats(
+                me.copy(
+                    referredByCode = cleanCode,
+                    coins = me.coins + 500,
+                    unlockedBorder = "GOLDEN"
+                )
+            )
+            val referralMsg = ChatMessage(
+                chatId = "alice",
+                senderName = "System",
+                senderAvatar = "img_profile_me_1783282394572",
+                content = "Referral code '$cleanCode' activated! 🎉 Both of you earned 500 coins and you unlocked the Legendary Golden Profile Border! 🏆🟡",
+                type = "TEXT"
+            )
+            repository.insertMessage(referralMsg)
+        }
+        return true
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+            } catch (e: Exception) {
+                // Safe fallback
+            }
+            val me = userStats.value
+            repository.insertUserStats(me.copy(authPhone = "", authGmail = "", authFacebook = ""))
+        }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            try {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.delete()
+            } catch (e: Exception) {
+                // Safe fallback
+            }
+            val me = userStats.value
+            repository.insertUserStats(me.copy(authPhone = "", authGmail = "", authFacebook = "", username = "Gamer"))
+        }
+    }
+
+    fun shareBragPost(gameTitle: String, scoreOrResult: String) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val content = "Just achieved an epic milestone! ⚔️ I conquered $gameTitle with a score/result of $scoreOrResult! Can anyone beat me? 🎮🏆 #WeGistVibe #RetroArcade"
+            val newPost = Post(
+                authorName = me.username,
+                authorAvatar = me.avatarResName,
+                content = content,
+                imageUrl = "img_retro_stream_thumbnail_1783282368689",
+                timestamp = System.currentTimeMillis()
+            )
+            repository.insertPost(newPost)
+            awardCoins(50)
+        }
+    }
+
     fun claimQuest(questId: String, xpAward: Int, coinAward: Int) {
         viewModelScope.launch {
             val me = userStats.value
@@ -1449,6 +1550,558 @@ class WeGistViewModel(
                 repository.updateMessage(updatedMsg)
             }
         }
+    }
+
+    fun playConnectFourMove(messageId: Int, col: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            val board = message.gameData?.split(",")?.toMutableList() ?: MutableList(25) { "" }
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            // Find lowest empty slot in this column (row goes from 4 down to 0)
+            var targetRow = -1
+            for (r in 4 downTo 0) {
+                val idx = r * 5 + col
+                if (board[idx].isEmpty()) {
+                    targetRow = r
+                    break
+                }
+            }
+
+            if (targetRow != -1) {
+                val targetIdx = targetRow * 5 + col
+                board[targetIdx] = "R" // Red (Me)
+                val updatedBoardData = board.joinToString(",")
+
+                val isUserWin = checkConnectFourWin(board, "R")
+                val isDraw = !board.contains("") && !isUserWin
+
+                val status = if (isUserWin || isDraw) "COMPLETED" else "ACTIVE"
+                val winner = if (isUserWin) "me" else if (isDraw) "DRAW" else null
+
+                val updatedMsg = message.copy(
+                    gameStatus = status,
+                    gameWinner = winner,
+                    gameData = updatedBoardData,
+                    content = if (isUserWin) "I connected four in a row! 🎉" else if (isDraw) "The Connect Four game is a draw!" else "I dropped a chip in col ${col + 1}. Your turn!"
+                )
+                repository.updateMessage(updatedMsg)
+
+                if (isUserWin) {
+                    awardCoins(120)
+                    incrementWins()
+                }
+
+                if (status == "ACTIVE") {
+                    delay(1500)
+                    triggerConnectFourAIMove(updatedMsg, board)
+                }
+            }
+        }
+    }
+
+    private suspend fun triggerConnectFourAIMove(message: ChatMessage, board: MutableList<String>) {
+        val availableCols = (0..4).filter { col -> (0..4).any { r -> board[r * 5 + col].isEmpty() } }
+        if (availableCols.isNotEmpty()) {
+            val aiCol = availableCols.random()
+            var targetRow = -1
+            for (r in 4 downTo 0) {
+                val idx = r * 5 + aiCol
+                if (board[idx].isEmpty()) {
+                    targetRow = r
+                    break
+                }
+            }
+            if (targetRow != -1) {
+                val targetIdx = targetRow * 5 + aiCol
+                board[targetIdx] = "Y" // Yellow (AI)
+                val updatedBoardData = board.joinToString(",")
+
+                val isAIWin = checkConnectFourWin(board, "Y")
+                val isDraw = !board.contains("") && !isAIWin
+
+                val status = if (isAIWin || isDraw) "COMPLETED" else "ACTIVE"
+                val winner = if (isAIWin) "opponent" else if (isDraw) "DRAW" else null
+
+                val updatedMsg = message.copy(
+                    gameStatus = status,
+                    gameWinner = winner,
+                    gameData = updatedBoardData,
+                    content = if (isAIWin) "Alice connected four in a row! 🤖" else if (isDraw) "The Connect Four game is a draw!" else "I made my move! Column ${aiCol + 1}."
+                )
+                repository.updateMessage(updatedMsg)
+            }
+        }
+    }
+
+    private fun checkConnectFourWin(board: List<String>, player: String): Boolean {
+        // Horizontal
+        for (row in 0..4) {
+            for (col in 0..1) {
+                val base = row * 5 + col
+                if (board[base] == player && board[base+1] == player && board[base+2] == player && board[base+3] == player) return true
+            }
+        }
+        // Vertical
+        for (col in 0..4) {
+            for (row in 0..1) {
+                val base = row * 5 + col
+                if (board[base] == player && board[base+5] == player && board[base+10] == player && board[base+15] == player) return true
+            }
+        }
+        // Diagonal down-right
+        for (row in 0..1) {
+            for (col in 0..1) {
+                val base = row * 5 + col
+                if (board[base] == player && board[base+6] == player && board[base+12] == player && board[base+18] == player) return true
+            }
+        }
+        // Diagonal down-left
+        for (row in 0..1) {
+            for (col in 2..4) {
+                val base = row * 5 + col
+                if (board[base] == player && board[base+4] == player && board[base+8] == player && board[base+12] == player) return true
+            }
+        }
+        return false
+    }
+
+    fun playBattleshipMove(messageId: Int, cellIdx: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
+            if (parts.size < 4) return@launch
+
+            val playerShots = parts[0].split(",").toMutableList()
+            val aiShips = parts[1].split(",")
+            val aiShots = parts[2].split(",").toMutableList()
+            val playerShips = parts[3].split(",")
+
+            if (playerShots[cellIdx] != ".") return@launch // Already shot here
+
+            val isHit = aiShips.contains(cellIdx.toString())
+            playerShots[cellIdx] = if (isHit) "H" else "M"
+
+            val totalPlayerHits = playerShots.count { it == "H" }
+            val isUserWin = totalPlayerHits >= aiShips.size
+
+            parts[0] = playerShots.joinToString(",")
+
+            val status = if (isUserWin) "COMPLETED" else "ACTIVE"
+            val winner = if (isUserWin) "me" else null
+
+            val resultText = if (isUserWin) {
+                "I sank all AI ships and won the Battleship battle! 🎉 (+150 🪙)"
+            } else if (isHit) {
+                "Hit! I found a ship at sector $cellIdx! 💥 AI's turn..."
+            } else {
+                "Miss at sector $cellIdx. 💨 AI's turn..."
+            }
+
+            val updatedMsg = message.copy(
+                gameStatus = status,
+                gameWinner = winner,
+                gameData = parts.joinToString("|"),
+                content = resultText
+            )
+            repository.updateMessage(updatedMsg)
+
+            if (isUserWin) {
+                awardCoins(150)
+                incrementWins()
+            }
+
+            if (status == "ACTIVE") {
+                delay(1500)
+                triggerBattleshipAIMove(updatedMsg, parts)
+            }
+        }
+    }
+
+    private suspend fun triggerBattleshipAIMove(message: ChatMessage, parts: MutableList<String>) {
+        val aiShots = parts[2].split(",").toMutableList()
+        val playerShips = parts[3].split(",")
+
+        val availableTargetIndices = aiShots.indices.filter { aiShots[it] == "." }
+        if (availableTargetIndices.isNotEmpty()) {
+            val target = availableTargetIndices.random()
+            val isHit = playerShips.contains(target.toString())
+            aiShots[target] = if (isHit) "H" else "M"
+
+            val totalAiHits = aiShots.count { it == "H" }
+            val isAiWin = totalAiHits >= playerShips.size
+
+            parts[2] = aiShots.joinToString(",")
+
+            val status = if (isAiWin) "COMPLETED" else "ACTIVE"
+            val winner = if (isAiWin) "opponent" else null
+
+            val resultText = if (isAiWin) {
+                "Alice sank all your ships! 🤖 You lost!"
+            } else if (isHit) {
+                "Alice launched an attack and HIT your ship at sector $target! 🔥 Your turn!"
+            } else {
+                "Alice missed her attack at sector $target. 💨 Your turn!"
+            }
+
+            val updatedMsg = message.copy(
+                gameStatus = status,
+                gameWinner = winner,
+                gameData = parts.joinToString("|"),
+                content = resultText
+            )
+            repository.updateMessage(updatedMsg)
+        }
+    }
+
+    fun playDiceDuelMove(messageId: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val dataParts = message.gameData?.split(",")?.map { it.toIntOrNull() ?: 0 } ?: listOf(0, 0, 0, 0, 0)
+            var (userScore, oppScore, round, lastUser, lastOpp) = dataParts
+
+            val userRoll = (1..6).random() + (1..6).random()
+            userScore += userRoll
+            round += 1
+
+            // AI rolls right after
+            val oppRoll = (1..6).random() + (1..6).random()
+            oppScore += oppRoll
+
+            val isLastRound = round >= 3
+            val status = if (isLastRound) "COMPLETED" else "ACTIVE"
+            val winner = if (isLastRound) {
+                if (userScore > oppScore) "me" else if (oppScore > userScore) "opponent" else "DRAW"
+            } else null
+
+            val resultText = if (isLastRound) {
+                if (userScore > oppScore) {
+                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. I WON! 🏆"
+                } else if (oppScore > userScore) {
+                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. Alice won! 🤖"
+                } else {
+                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. It's a DRAW! 🤝"
+                }
+            } else {
+                "Round $round: I rolled $userRoll. Alice rolled $oppRoll.\nRunning Score: $userScore - $oppScore! Your turn to roll again!"
+            }
+
+            val updatedMsg = message.copy(
+                gameStatus = status,
+                gameWinner = winner,
+                gameData = "$userScore,$oppScore,$round,$userRoll,$oppRoll",
+                content = resultText
+            )
+            repository.updateMessage(updatedMsg)
+
+            if (isLastRound && winner == "me") {
+                awardCoins(100)
+                incrementWins()
+            }
+        }
+    }
+
+    fun playMemoryMatchMove(messageId: Int, cardIdx: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
+            if (parts.size < 5) return@launch
+
+            val cardsLayout = parts[0].split(",")
+            val matchedArray = parts[1].split(",").toMutableList()
+            var firstSel = parts[2].toIntOrNull() ?: -1
+            var playerScore = parts[3].toIntOrNull() ?: 0
+            var oppScore = parts[4].toIntOrNull() ?: 0
+
+            if (matchedArray[cardIdx] == "M" || cardIdx == firstSel) return@launch
+
+            if (firstSel == -1) {
+                // First card selected
+                firstSel = cardIdx
+                parts[2] = firstSel.toString()
+
+                val updatedMsg = message.copy(
+                    gameData = parts.joinToString("|"),
+                    content = "Flipped first card: ${cardsLayout[cardIdx]}! Flip second..."
+                )
+                repository.updateMessage(updatedMsg)
+            } else {
+                // Second card selected
+                val firstCardVal = cardsLayout[firstSel]
+                val secondCardVal = cardsLayout[cardIdx]
+
+                if (firstCardVal == secondCardVal) {
+                    // Match!
+                    matchedArray[firstSel] = "M"
+                    matchedArray[cardIdx] = "M"
+                    playerScore += 1
+                    firstSel = -1
+
+                    val totalMatched = matchedArray.count { it == "M" }
+                    val isGameOver = totalMatched >= 16
+                    val status = if (isGameOver) "COMPLETED" else "ACTIVE"
+                    val winner = if (isGameOver) {
+                        if (playerScore > oppScore) "me" else if (oppScore > playerScore) "opponent" else "DRAW"
+                    } else null
+
+                    parts[1] = matchedArray.joinToString(",")
+                    parts[2] = "-1"
+                    parts[3] = playerScore.toString()
+
+                    val resultText = if (isGameOver) {
+                        "Memory Card match game completed! Matches Score: **$playerScore - $oppScore**. ${if (playerScore > oppScore) "I won! 🎉" else "Alice won! 🤖"}"
+                    } else {
+                        "Matched! Found a pair of $firstCardVal! Your score: $playerScore. Keep matching! 🧠"
+                    }
+
+                    val updatedMsg = message.copy(
+                        gameStatus = status,
+                        gameWinner = winner,
+                        gameData = parts.joinToString("|"),
+                        content = resultText
+                    )
+                    repository.updateMessage(updatedMsg)
+
+                    if (isGameOver && winner == "me") {
+                        awardCoins(120)
+                        incrementWins()
+                    }
+                } else {
+                    // Mismatch!
+                    val wrongFirst = firstSel
+                    val wrongSecond = cardIdx
+
+                    // Display mismatch briefly then let AI play
+                    parts[2] = "-1" // Reset selection
+
+                    val updatedMsg = message.copy(
+                        gameData = parts.joinToString("|"),
+                        content = "Oops! ${cardsLayout[wrongFirst]} doesn't match ${cardsLayout[wrongSecond]}. AI's turn!"
+                    )
+                    repository.updateMessage(updatedMsg)
+
+                    // Delay and AI turn
+                    delay(1500)
+                    triggerMemoryAIMove(updatedMsg, parts)
+                }
+            }
+        }
+    }
+
+    private suspend fun triggerMemoryAIMove(message: ChatMessage, parts: MutableList<String>) {
+        val cardsLayout = parts[0].split(",")
+        val matchedArray = parts[1].split(",").toMutableList()
+        var oppScore = parts[4].toIntOrNull() ?: 0
+        val playerScore = parts[3].toIntOrNull() ?: 0
+
+        val unmatchedIndices = matchedArray.indices.filter { matchedArray[it] == "." }
+        if (unmatchedIndices.size >= 2) {
+            // AI is smart: 40% chance of finding a pair, otherwise random selection
+            var firstIdx = -1
+            var secondIdx = -1
+
+            if (Math.random() < 0.4) {
+                // Find a match in available cards
+                outer@ for (i in unmatchedIndices) {
+                    for (j in unmatchedIndices) {
+                        if (i != j && cardsLayout[i] == cardsLayout[j]) {
+                            firstIdx = i
+                            secondIdx = j
+                            break@outer
+                        }
+                    }
+                }
+            }
+
+            if (firstIdx == -1) {
+                // Pick random
+                val shuffled = unmatchedIndices.shuffled()
+                firstIdx = shuffled[0]
+                secondIdx = shuffled[1]
+            }
+
+            val firstCardVal = cardsLayout[firstIdx]
+            val secondCardVal = cardsLayout[secondIdx]
+
+            val text: String
+            if (firstCardVal == secondCardVal) {
+                matchedArray[firstIdx] = "M"
+                matchedArray[secondIdx] = "M"
+                oppScore += 1
+                parts[1] = matchedArray.joinToString(",")
+                parts[4] = oppScore.toString()
+
+                val totalMatched = matchedArray.count { it == "M" }
+                val isGameOver = totalMatched >= 16
+                val status = if (isGameOver) "COMPLETED" else "ACTIVE"
+                val winner = if (isGameOver) {
+                    if (playerScore > oppScore) "me" else if (oppScore > playerScore) "opponent" else "DRAW"
+                } else null
+
+                text = if (isGameOver) {
+                    "Alice matched $firstCardVal! Game completed. Matches: **$playerScore - $oppScore**. ${if (playerScore > oppScore) "I won! 🎉" else "Alice won! 🤖"}"
+                } else {
+                    "Alice matched $firstCardVal and $secondCardVal! Score: $playerScore - $oppScore. Your turn!"
+                }
+
+                val updatedMsg = message.copy(
+                    gameStatus = status,
+                    gameWinner = winner,
+                    gameData = parts.joinToString("|"),
+                    content = text
+                )
+                repository.updateMessage(updatedMsg)
+            } else {
+                text = "Alice tried flipping cards at $firstIdx and $secondIdx but they didn't match. Your turn!"
+                val updatedMsg = message.copy(
+                    gameData = parts.joinToString("|"),
+                    content = text
+                )
+                repository.updateMessage(updatedMsg)
+            }
+        }
+    }
+
+    fun playNumberGuesserMove(messageId: Int, guess: Int) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val parts = message.gameData?.split(",") ?: return@launch
+            val secretVal = parts.getOrNull(0)?.toIntOrNull() ?: 25
+            var attempts = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val maxAttempts = parts.getOrNull(2)?.toIntOrNull() ?: 6
+
+            attempts += 1
+            val isCorrect = guess == secretVal
+            val isOutOfAttempts = attempts >= maxAttempts
+
+            val feedback = when {
+                isCorrect -> "Correct! You guessed it in $attempts attempts!"
+                guess < secretVal -> "Guess $guess is Too Low! 📉"
+                else -> "Guess $guess is Too High! 📈"
+            }
+
+            val status = if (isCorrect || isOutOfAttempts) "COMPLETED" else "ACTIVE"
+            val winner = if (isCorrect) "me" else if (isOutOfAttempts) "opponent" else null
+
+            val resultText = if (isCorrect) {
+                "I solved the Guess the Number! The secret was **$secretVal**! 🎉 (+100 🪙)"
+            } else if (isOutOfAttempts) {
+                "Whoops, out of attempts! The correct number was **$secretVal**. Alice wins! 🤖"
+            } else {
+                "I guessed $guess. Feedback: $feedback. ${maxAttempts - attempts} attempts left!"
+            }
+
+            val updatedMsg = message.copy(
+                gameStatus = status,
+                gameWinner = winner,
+                gameData = "$secretVal,$attempts,$maxAttempts,$feedback",
+                content = resultText
+            )
+            repository.updateMessage(updatedMsg)
+
+            if (isCorrect) {
+                awardCoins(100)
+                incrementWins()
+            }
+        }
+    }
+
+    fun playBlackjackMove(messageId: Int, action: String) {
+        viewModelScope.launch {
+            val messagesList = allMessages.value
+            val message = messagesList.find { it.id == messageId } ?: return@launch
+            if (message.gameStatus == "COMPLETED") return@launch
+
+            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
+            val playerHand = parts[0].split(",").map { it.toIntOrNull() ?: 0 }.toMutableList()
+            val oppHand = parts[1].split(",").map { it.toIntOrNull() ?: 0 }.toMutableList()
+
+            if (action == "HIT") {
+                val newCard = (1..11).random()
+                playerHand.add(newCard)
+                val playerScore = calculateBlackjackScore(playerHand)
+
+                parts[0] = playerHand.joinToString(",")
+
+                if (playerScore > 21) {
+                    // Bust!
+                    val updatedMsg = message.copy(
+                        gameStatus = "COMPLETED",
+                        gameWinner = "opponent",
+                        gameData = parts.joinToString("|"),
+                        content = "Bust! Drew a $newCard, Total Score is $playerScore. Alice wins! 🤖"
+                    )
+                    repository.updateMessage(updatedMsg)
+                } else {
+                    val updatedMsg = message.copy(
+                        gameData = parts.joinToString("|"),
+                        content = "You drew a $newCard. Your Hand: ${playerHand.joinToString(", ")} (Score: $playerScore). Hit or Stand?"
+                    )
+                    repository.updateMessage(updatedMsg)
+                }
+            } else if (action == "STAND") {
+                // Dealer/Opponent hits until 17+
+                var oppScore = calculateBlackjackScore(oppHand)
+                while (oppScore < 17) {
+                    val newCard = (1..11).random()
+                    oppHand.add(newCard)
+                    oppScore = calculateBlackjackScore(oppHand)
+                }
+
+                parts[1] = oppHand.joinToString(",")
+                val playerScore = calculateBlackjackScore(playerHand)
+
+                val winner = when {
+                    oppScore > 21 -> "me"
+                    playerScore > oppScore -> "me"
+                    oppScore > playerScore -> "opponent"
+                    else -> "DRAW"
+                }
+
+                val status = "COMPLETED"
+                val resultText = when (winner) {
+                    "me" -> "You Win! Your score: $playerScore, Alice's score: $oppScore ${if (oppScore > 21) "(Busted)" else ""}. 🎉 (+120 🪙)"
+                    "opponent" -> "Alice wins! Your score: $playerScore, Alice's score: $oppScore. 🤖"
+                    else -> "Dealer/Player Push! Both got $playerScore. 🤝"
+                }
+
+                val updatedMsg = message.copy(
+                    gameStatus = status,
+                    gameWinner = winner,
+                    gameData = parts.joinToString("|"),
+                    content = resultText
+                )
+                repository.updateMessage(updatedMsg)
+
+                if (winner == "me") {
+                    awardCoins(120)
+                    incrementWins()
+                }
+            }
+        }
+    }
+
+    private fun calculateBlackjackScore(hand: List<Int>): Int {
+        var score = hand.sum()
+        var aces = hand.count { it == 11 }
+        while (score > 21 && aces > 0) {
+            score -= 10
+            aces -= 1
+        }
+        return score
     }
 }
 

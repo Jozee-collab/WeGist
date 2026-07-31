@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [ChatMessage::class, LiveStream::class, UserStats::class, Post::class, Reel::class, Friend::class, FriendRequest::class, Story::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

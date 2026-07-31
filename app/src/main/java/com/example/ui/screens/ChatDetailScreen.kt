@@ -46,6 +46,12 @@ fun ChatDetailScreen(
     onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
     onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
     onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> },
+    onPlayConnectFourMove: (messageId: Int, columnIdx: Int) -> Unit = { _, _ -> },
+    onPlayBattleshipMove: (messageId: Int, cellIdx: Int) -> Unit = { _, _ -> },
+    onPlayDiceDuelMove: (messageId: Int) -> Unit = { _ -> },
+    onPlayMemoryMatchMove: (messageId: Int, cardIdx: Int) -> Unit = { _, _ -> },
+    onPlayNumberGuesserMove: (messageId: Int, guess: Int) -> Unit = { _, _ -> },
+    onPlayBlackjackMove: (messageId: Int, action: String) -> Unit = { _, _ -> },
     onReactToMessage: (messageId: Int, emoji: String) -> Unit,
     onBack: () -> Unit,
     appMode: String = "GAMING",
@@ -692,7 +698,10 @@ fun ChatDetailScreen(
             }
 
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 1000.dp)
+                    .align(Alignment.TopCenter)
             ) {
                 // Enterprise Scheduling Banner
                 if (appMode == "ENTERPRISE") {
@@ -899,6 +908,12 @@ fun ChatDetailScreen(
                         onPlayRockPaperScissors = onPlayRockPaperScissors,
                         onPlayTriviaAnswer = onPlayTriviaAnswer,
                         onPlayChessMove = onPlayChessMove,
+                        onPlayConnectFourMove = onPlayConnectFourMove,
+                        onPlayBattleshipMove = onPlayBattleshipMove,
+                        onPlayDiceDuelMove = onPlayDiceDuelMove,
+                        onPlayMemoryMatchMove = onPlayMemoryMatchMove,
+                        onPlayNumberGuesserMove = onPlayNumberGuesserMove,
+                        onPlayBlackjackMove = onPlayBlackjackMove,
                         onGamerNameClicked = { selectedGamerName = it },
                         onReactToMessage = onReactToMessage,
                         appMode = appMode
@@ -955,6 +970,25 @@ fun ChatDetailScreen(
                             "TIC_TAC_TOE" -> ",,,,,,,,"
                             "CHESS" -> "♜,♞,♝,♚,.,.,.,.,.,.,.,.,♖,♘,♗,♔"
                             "TRIVIA" -> "-1,-1"
+                            "CONNECT_FOUR" -> ",,,,,,,,,,,,,,,,,,,,,,,,"
+                            "BATTLESHIP" -> {
+                                val uShips = (0..15).shuffled().take(3).joinToString(",")
+                                val aShips = (0..15).shuffled().take(3).joinToString(",")
+                                val shots = List(16) { "." }.joinToString(",")
+                                "$shots|$aShips|$shots|$uShips"
+                            }
+                            "DICE_DUEL" -> "0,0,0,0,0"
+                            "MEMORY_MATCH" -> {
+                                val emojis = listOf("👾", "💣", "🏆", "🎮", "🕹️", "💥", "🔥", "👑", "👾", "💣", "🏆", "🎮", "🕹️", "💥", "🔥", "👑").shuffled().joinToString(",")
+                                val matched = List(16) { "." }.joinToString(",")
+                                "$emojis|$matched|-1|0|0"
+                            }
+                            "NUMBER_GUESSER" -> "${(1..50).random()},0,6,Start guessing!"
+                            "BLACKJACK" -> {
+                                val userHand = "${(2..11).random()},${(2..11).random()}"
+                                val oppHand = "${(2..11).random()},${(2..11).random()}"
+                                "$userHand|$oppHand"
+                            }
                             else -> "PENDING"
                         }
                         onSendMessage(
@@ -1330,6 +1364,12 @@ fun MessageBubble(
     onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
     onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
     onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> },
+    onPlayConnectFourMove: (messageId: Int, columnIdx: Int) -> Unit = { _, _ -> },
+    onPlayBattleshipMove: (messageId: Int, cellIdx: Int) -> Unit = { _, _ -> },
+    onPlayDiceDuelMove: (messageId: Int) -> Unit = { _ -> },
+    onPlayMemoryMatchMove: (messageId: Int, cardIdx: Int) -> Unit = { _, _ -> },
+    onPlayNumberGuesserMove: (messageId: Int, guess: Int) -> Unit = { _, _ -> },
+    onPlayBlackjackMove: (messageId: Int, action: String) -> Unit = { _, _ -> },
     onReactToMessage: (messageId: Int, emoji: String) -> Unit,
     onGamerNameClicked: (String) -> Unit = {},
     appMode: String = "GAMING"
@@ -1693,7 +1733,13 @@ fun MessageBubble(
                             onPlayTicTacToeMove = onPlayTicTacToeMove,
                             onPlayRockPaperScissors = onPlayRockPaperScissors,
                             onPlayTriviaAnswer = onPlayTriviaAnswer,
-                            onPlayChessMove = onPlayChessMove
+                            onPlayChessMove = onPlayChessMove,
+                            onPlayConnectFourMove = onPlayConnectFourMove,
+                            onPlayBattleshipMove = onPlayBattleshipMove,
+                            onPlayDiceDuelMove = onPlayDiceDuelMove,
+                            onPlayMemoryMatchMove = onPlayMemoryMatchMove,
+                            onPlayNumberGuesserMove = onPlayNumberGuesserMove,
+                            onPlayBlackjackMove = onPlayBlackjackMove
                         )
                     }
 
@@ -1935,7 +1981,13 @@ fun GameChallengeInviteView(
     onPlayTicTacToeMove: (messageId: Int, cellIndex: Int) -> Unit,
     onPlayRockPaperScissors: (messageId: Int, choice: String) -> Unit,
     onPlayTriviaAnswer: (messageId: Int, selectedOptionIdx: Int) -> Unit = { _, _ -> },
-    onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> }
+    onPlayChessMove: (messageId: Int, fromIdx: Int, toIdx: Int) -> Unit = { _, _, _ -> },
+    onPlayConnectFourMove: (messageId: Int, columnIdx: Int) -> Unit = { _, _ -> },
+    onPlayBattleshipMove: (messageId: Int, cellIdx: Int) -> Unit = { _, _ -> },
+    onPlayDiceDuelMove: (messageId: Int) -> Unit = { _ -> },
+    onPlayMemoryMatchMove: (messageId: Int, cardIdx: Int) -> Unit = { _, _ -> },
+    onPlayNumberGuesserMove: (messageId: Int, guess: Int) -> Unit = { _, _ -> },
+    onPlayBlackjackMove: (messageId: Int, action: String) -> Unit = { _, _ -> }
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -2239,6 +2291,467 @@ fun GameChallengeInviteView(
                     textAlign = TextAlign.Center
                 )
             }
+        } else if (message.gameType == "CONNECT_FOUR") {
+            val completed = message.gameStatus == "COMPLETED"
+            val board = message.gameData?.split(",") ?: List(25) { "" }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text("5x5 Connect Four", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                Box(
+                    modifier = Modifier
+                        .size(170.dp)
+                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        for (row in 0..4) {
+                            Row(modifier = Modifier.weight(1f)) {
+                                for (col in 0..4) {
+                                    val idx = row * 5 + col
+                                    val cell = board.getOrElse(idx) { "" }
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .padding(2.dp)
+                                            .border(1.dp, CyberBorder.copy(alpha = 0.4f), CircleShape)
+                                            .clickable(enabled = !completed) {
+                                                onPlayConnectFourMove(message.id, col)
+                                            }
+                                            .testTag("c4_cell_${row}_${col}"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (cell.isNotEmpty()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize(0.8f)
+                                                    .background(
+                                                        color = if (cell == "R") CyberPink else NeonMint,
+                                                        shape = CircleShape
+                                                    )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!completed) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        for (col in 0..4) {
+                            val isFull = board[col].isNotEmpty()
+                            Button(
+                                onClick = { onPlayConnectFourMove(message.id, col) },
+                                enabled = !isFull,
+                                colors = ButtonDefaults.buttonColors(containerColor = CyberBorder),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                                    .testTag("c4_drop_btn_$col")
+                            ) {
+                                Text("⬇️", fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = when {
+                        completed && message.gameWinner == "me" -> "Winner: You! 🎉 (+120 🪙)"
+                        completed && message.gameWinner == "opponent" -> "Winner: Alice 🤖"
+                        completed && message.gameWinner == "DRAW" -> "Tie Game! 🤝"
+                        completed -> "Completed"
+                        else -> "Your turn! Tap column drop buttons."
+                    },
+                    fontSize = 11.sp,
+                    color = if (completed && message.gameWinner == "me") NeonMint else TextWhite,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else if (message.gameType == "BATTLESHIP") {
+            val completed = message.gameStatus == "COMPLETED"
+            val parts = message.gameData?.split("|") ?: listOf()
+            if (parts.size >= 4) {
+                val playerShots = parts[0].split(",")
+                val aiShips = parts[1].split(",")
+                val aiShots = parts[2].split(",")
+                val playerShips = parts[3].split(",")
+
+                val userHitsCount = playerShots.count { it == "H" }
+                val aiHitsCount = aiShots.count { it == "H" }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text("Tactical Battleship (4x4)", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("My Ships: ${3 - aiHitsCount}/3 ⛵", color = CyberPink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("AI Ships: ${3 - userHitsCount}/3 🛸", color = NeonMint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(150.dp)
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(4.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            for (row in 0..3) {
+                                Row(modifier = Modifier.weight(1f)) {
+                                    for (col in 0..3) {
+                                        val idx = row * 4 + col
+                                        val cell = playerShots.getOrElse(idx) { "." }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .border(0.5.dp, CyberBorder.copy(alpha = 0.3f))
+                                                .clickable(enabled = !completed && cell == ".") {
+                                                    onPlayBattleshipMove(message.id, idx)
+                                                }
+                                                .testTag("bs_cell_$idx"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = when (cell) {
+                                                    "H" -> "🔥"
+                                                    "M" -> "💧"
+                                                    else -> "🌊"
+                                                },
+                                                fontSize = 18.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = when {
+                            completed && message.gameWinner == "me" -> "Winner: You! 🎉 (+150 🪙)"
+                            completed && message.gameWinner == "opponent" -> "Winner: Alice 🤖"
+                            completed -> "Completed"
+                            else -> "Tap waves 🌊 to launch torpedoes!"
+                        },
+                        fontSize = 11.sp,
+                        color = if (completed && message.gameWinner == "me") NeonMint else TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else if (message.gameType == "DICE_DUEL") {
+            val completed = message.gameStatus == "COMPLETED"
+            val parts = message.gameData?.split(",") ?: listOf("0", "0", "0", "0", "0")
+            val userScore = parts.getOrNull(0)?.toIntOrNull() ?: 0
+            val oppScore = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val round = parts.getOrNull(2)?.toIntOrNull() ?: 0
+            val lastUser = parts.getOrNull(3)?.toIntOrNull() ?: 0
+            val lastOpp = parts.getOrNull(4)?.toIntOrNull() ?: 0
+
+            val diceEmojis = listOf("", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅")
+            val userDiceText = if (lastUser in 1..12) {
+                if (lastUser > 6) {
+                    "${diceEmojis.getOrElse(lastUser / 2) { "" }} ${diceEmojis.getOrElse(lastUser - (lastUser / 2)) { "" }}"
+                } else {
+                    diceEmojis[lastUser]
+                }
+            } else "🎲"
+            val oppDiceText = if (lastOpp in 1..12) {
+                if (lastOpp > 6) {
+                    "${diceEmojis.getOrElse(lastOpp / 2) { "" }} ${diceEmojis.getOrElse(lastOpp - (lastOpp / 2)) { "" }}"
+                } else {
+                    diceEmojis[lastOpp]
+                }
+            } else "🎲"
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(10.dp)
+            ) {
+                Text("Dice Duel (Round $round/3)", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("You", color = TextGray, fontSize = 11.sp)
+                        Text(userDiceText, fontSize = 32.sp)
+                        Text("$userScore pts", color = CyberPink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+
+                    Text("VS", fontWeight = FontWeight.Black, color = CyberPink, fontSize = 16.sp)
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Alice", color = TextGray, fontSize = 11.sp)
+                        Text(oppDiceText, fontSize = 32.sp)
+                        Text("$oppScore pts", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+
+                if (!completed) {
+                    Button(
+                        onClick = { onPlayDiceDuelMove(message.id) },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                        modifier = Modifier.fillMaxWidth().height(36.dp).testTag("dice_roll_btn")
+                    ) {
+                        Text("Roll Dice 🎲", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                } else {
+                    Text(
+                        text = when {
+                            message.gameWinner == "me" -> "You won the Duel! 🏆 (+100 🪙)"
+                            message.gameWinner == "opponent" -> "Alice won! 🤖"
+                            else -> "It's a draw! 🤝"
+                        },
+                        color = if (message.gameWinner == "me") NeonMint else TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else if (message.gameType == "MEMORY_MATCH") {
+            val completed = message.gameStatus == "COMPLETED"
+            val parts = message.gameData?.split("|") ?: listOf()
+            if (parts.size >= 5) {
+                val cardsLayout = parts[0].split(",")
+                val matchedArray = parts[1].split(",")
+                val firstSel = parts[2].toIntOrNull() ?: -1
+                val playerScore = parts[3].toIntOrNull() ?: 0
+                val oppScore = parts[4].toIntOrNull() ?: 0
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text("Memory Card Match", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Your Pairs: $playerScore", color = CyberPink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("AI Pairs: $oppScore", color = NeonMint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(160.dp)
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(4.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            for (row in 0..3) {
+                                Row(modifier = Modifier.weight(1f)) {
+                                    for (col in 0..3) {
+                                        val idx = row * 4 + col
+                                        val emoji = cardsLayout.getOrElse(idx) { "" }
+                                        val isMatched = matchedArray.getOrElse(idx) { "" } == "M"
+                                        val isSelected = firstSel == idx
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .padding(2.dp)
+                                                .background(
+                                                    if (isMatched || isSelected) Color(0xFF1E293B) else CyberBorder,
+                                                    RoundedCornerShape(4.dp)
+                                                )
+                                                .border(0.5.dp, CyberBorder.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                .clickable(enabled = !completed && !isMatched && !isSelected) {
+                                                    onPlayMemoryMatchMove(message.id, idx)
+                                                }
+                                                .testTag("mem_card_$idx"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (isMatched || isSelected) emoji else "❓",
+                                                fontSize = 16.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = when {
+                            completed && message.gameWinner == "me" -> "Winner: You! 🎉 (+120 🪙)"
+                            completed && message.gameWinner == "opponent" -> "Winner: Alice 🤖"
+                            completed -> "Tie game!"
+                            firstSel != -1 -> "Flip second card!"
+                            else -> "Tap cards to find pairs!"
+                        },
+                        fontSize = 11.sp,
+                        color = if (completed && message.gameWinner == "me") NeonMint else TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else if (message.gameType == "NUMBER_GUESSER") {
+            val completed = message.gameStatus == "COMPLETED"
+            val parts = message.gameData?.split(",") ?: listOf("25", "0", "6", "Start guessing!")
+            val attempts = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val maxAttempts = parts.getOrNull(2)?.toIntOrNull() ?: 6
+            val feedback = parts.getOrNull(3) ?: "Guess the number!"
+
+            var sliderValue by remember { mutableStateOf(25f) }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(10.dp)
+            ) {
+                Text("Guess the Number (1 to 50)", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Attempts: $attempts / $maxAttempts", color = TextGray, fontSize = 11.sp)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                ) {
+                    Text(
+                        text = feedback,
+                        color = if (completed) NeonMint else CyberPink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (!completed) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "My Guess: ${sliderValue.toInt()}",
+                            color = TextWhite,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp
+                        )
+                        Slider(
+                            value = sliderValue,
+                            onValueChange = { sliderValue = it },
+                            valueRange = 1f..50f,
+                            steps = 49,
+                            colors = SliderDefaults.colors(
+                                thumbColor = NeonMint,
+                                activeTrackColor = NeonMint,
+                                inactiveTrackColor = CyberBorder
+                            ),
+                            modifier = Modifier.testTag("guess_slider")
+                        )
+                        Button(
+                            onClick = { onPlayNumberGuesserMove(message.id, sliderValue.toInt()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                            modifier = Modifier.fillMaxWidth().height(36.dp).testTag("guess_submit_btn")
+                        ) {
+                            Text("Submit Guess 🎯", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Secret number was ${parts.getOrNull(0) ?: ""}",
+                        color = NeonMint,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        } else if (message.gameType == "BLACKJACK") {
+            val completed = message.gameStatus == "COMPLETED"
+            val parts = message.gameData?.split("|") ?: listOf("2,3", "5,6")
+            val playerHand = parts.getOrNull(0)?.split(",")?.mapNotNull { it.toIntOrNull() } ?: listOf()
+            val oppHand = parts.getOrNull(1)?.split(",")?.mapNotNull { it.toIntOrNull() } ?: listOf()
+
+            val playerScore = playerHand.sum()
+            val oppScore = oppHand.sum()
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(10.dp)
+            ) {
+                Text("Blackjack 21 Duel", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Your Hand", color = TextGray, fontSize = 11.sp)
+                        Text(playerHand.joinToString("  "), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                        Text("Score: $playerScore", color = if (playerScore > 21) Color.Red else NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Alice's Hand", color = TextGray, fontSize = 11.sp)
+                        val oppDisplay = if (completed) oppHand.joinToString("  ") else "${oppHand.firstOrNull() ?: ""}  🎴"
+                        Text(oppDisplay, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                        val oppScoreDisplay = if (completed) oppScore.toString() else "?"
+                        Text("Score: $oppScoreDisplay", color = NeonPurple, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                if (!completed) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = { onPlayBlackjackMove(message.id, "HIT") },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonMint),
+                            modifier = Modifier.weight(1f).height(36.dp).testTag("bj_hit_btn")
+                        ) {
+                            Text("Hit 🃏", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = { onPlayBlackjackMove(message.id, "STAND") },
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberBorder),
+                            modifier = Modifier.weight(1f).height(36.dp).testTag("bj_stand_btn")
+                        ) {
+                            Text("Stand 🛑", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    Text(
+                        text = message.content,
+                        color = if (message.gameWinner == "me") NeonMint else TextWhite,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         } else if (message.gameType == "CUSTOM_LINK") {
             val parts = message.gameData?.split("|") ?: listOf("Custom Game", "", "Challenge link")
             val gameName = parts.getOrNull(0) ?: "Custom Game"
@@ -2381,7 +2894,7 @@ fun GameChallengeSelectionView(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2420,6 +2933,132 @@ fun GameChallengeSelectionView(
                         Text("💡 Trivia 🎓", fontSize = 24.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Multiplayer Quiz Challenge", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("CONNECT_FOUR") }
+                        .testTag("challenge_connect_four"),
+                    border = BorderStroke(1.dp, NeonMint.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🟡 Connect 🔴", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("5x5 Connect Four", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("BATTLESHIP") }
+                        .testTag("challenge_battleship"),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("⛵ Battleship 💥", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tactical Ship Hunt", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("DICE_DUEL") }
+                        .testTag("challenge_dice_duel"),
+                    border = BorderStroke(1.dp, NeonMint.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎲 Dice Duel 🎲", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("3-Round High Roll", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("MEMORY_MATCH") }
+                        .testTag("challenge_memory_match"),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🧠 Match 🧠", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Memory Card Match", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("NUMBER_GUESSER") }
+                        .testTag("challenge_number_guesser"),
+                    border = BorderStroke(1.dp, NeonMint.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🎯 Guess 🎯", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Secret Number Game", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1D1D24)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectGame("BLACKJACK") }
+                        .testTag("challenge_blackjack"),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🃏 Blackjack 🃏", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Beat the Dealer to 21", color = TextGray, fontSize = 11.sp, textAlign = TextAlign.Center)
                     }
                 }
             }

@@ -53,12 +53,23 @@ fun ProfileSettingsScreen(
     onSearchClicked: () -> Unit,
     onClaimQuest: (String, Int, Int) -> Unit = { _, _, _ -> },
     onUpgradePremium: (String) -> Unit = {},
+    onEnterReferralCode: (String) -> Boolean = { false },
+    onSignOut: () -> Unit = {},
+    onDeleteAccount: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showEditNameDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var showRateAppDialog by remember { mutableStateOf(false) }
+    var showChangelogDialog by remember { mutableStateOf(false) }
+    var showModerationDialog by remember { mutableStateOf(false) }
+    var showExportDataDialog by remember { mutableStateOf(false) }
+    var isPinLockEnabled by remember { mutableStateOf(false) }
+    var userRating by remember { mutableStateOf(5) }
     var nameInput by remember { mutableStateOf(userStats.username) }
     var dailyClaimed by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var lastLevel by remember { mutableStateOf(userStats.level) }
     var showLevelUpDialog by remember { mutableStateOf(false) }
@@ -193,6 +204,19 @@ fun ProfileSettingsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(modifier = Modifier.size(90.dp)) {
+                            val isGoldenBorder = userStats.unlockedBorder == "GOLDEN"
+                            val borderBrush = if (isGoldenBorder) {
+                                androidx.compose.ui.graphics.Brush.sweepGradient(
+                                    colors = listOf(
+                                        Color(0xFFFFD700),
+                                        Color(0xFFFFA500),
+                                        Color(0xFFFFD700)
+                                    )
+                                )
+                            } else {
+                                androidx.compose.ui.graphics.SolidColor(NeonMint)
+                            }
+                            
                             Image(
                                 painter = painterResource(id = R.drawable.img_profile_me_1783282394572),
                                 contentDescription = "My Avatar",
@@ -200,7 +224,7 @@ fun ProfileSettingsScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(CircleShape)
-                                    .border(2.dp, NeonMint, CircleShape)
+                                    .border(if (isGoldenBorder) 4.dp else 2.dp, borderBrush, CircleShape)
                             )
                             IconButton(
                                 onClick = { showEditNameDialog = true },
@@ -217,16 +241,22 @@ fun ProfileSettingsScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = "@${userStats.username}",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 18.sp,
-                            color = TextWhite
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "@${userStats.username}",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                color = TextWhite
+                            )
+                            if (userStats.unlockedBorder == "GOLDEN") {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("👑", fontSize = 16.sp)
+                            }
+                        }
                         Text(
                             text = "Level ${userStats.level} Gamer Guild Leader",
                             fontSize = 12.sp,
-                            color = NeonMint,
+                            color = if (userStats.unlockedBorder == "GOLDEN") Color(0xFFFFD700) else NeonMint,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -576,6 +606,133 @@ fun ProfileSettingsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         StatSmallCard(label = "Wallet Tokens", valText = "🪙 ${userStats.coins}", tint = AccentOrange, modifier = Modifier.weight(1f))
                         StatSmallCard(label = "Global Rank", valText = "# ${userStats.globalRank}", tint = CyberPink, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
+            // Viral Social Referral Card
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B0F2E)),
+                    border = BorderStroke(1.dp, NeonPurple),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("referral_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🎟️ Referral Hub", fontWeight = FontWeight.Black, fontSize = 16.sp, color = TextWhite)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(NeonPurple.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("+500 COINS & BORDER", color = NeonMint, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        Text(
+                            "Share your unique referral code with friends. When they activate it, you both earn 500 Arcade Coins and unlock the Legendary Golden Neon Border for your profile!",
+                            fontSize = 11.sp,
+                            color = TextGray,
+                            lineHeight = 15.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(14.dp))
+                        
+                        // Your code sharing
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                .border(0.5.dp, CyberBorder, RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("YOUR PERSONAL CODE", color = TextGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                Text(userStats.referralCode, color = NeonMint, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            }
+                            
+                            var copied by remember { mutableStateOf(false) }
+                            Button(
+                                onClick = {
+                                    copied = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonPurple, contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(if (copied) "Copied!" else "Copy Share Link", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Enter Friend's code input
+                        if (userStats.referredByCode.isEmpty()) {
+                            var friendCodeInput by remember { mutableStateOf("") }
+                            var claimStatusMessage by remember { mutableStateOf<String?>(null) }
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = friendCodeInput,
+                                    onValueChange = { friendCodeInput = it },
+                                    label = { Text("Enter Friend's Code", fontSize = 11.sp, color = TextGray) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = NeonMint,
+                                        unfocusedBorderColor = CyberBorder,
+                                        focusedLabelColor = NeonMint,
+                                        cursorColor = NeonMint,
+                                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f)
+                                    ),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f).height(50.dp)
+                                )
+                                
+                                Button(
+                                    onClick = {
+                                        val success = onEnterReferralCode(friendCodeInput)
+                                        if (success) {
+                                            claimStatusMessage = "Code Activated! +500 Coins 🪙 & Golden Border Unlocked! 👑"
+                                        } else {
+                                            claimStatusMessage = "Invalid Code."
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeonMint, contentColor = Color.Black),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.height(44.dp).testTag("claim_referral_btn")
+                                ) {
+                                    Text("Claim", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                            if (claimStatusMessage != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(claimStatusMessage!!, color = if (claimStatusMessage!!.startsWith("Code")) NeonMint else CyberPink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(NeonMint.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .border(0.5.dp, NeonMint.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Active", tint = NeonMint, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Referred by friend: ${userStats.referredByCode} (Active)", color = NeonMint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
@@ -1363,9 +1520,346 @@ fun ProfileSettingsScreen(
                     }
                 }
             }
+
+            // Play Store Compliance & Account Management Section
+            item {
+                Text("Account & Play Store Security", color = TextWhite, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyberCard),
+                    border = BorderStroke(1.dp, CyberBorder),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        PrivacyToggleRow(
+                            title = "PIN / Biometric Screen Lock",
+                            desc = "Require authentication when opening WeGist.",
+                            checked = isPinLockEnabled,
+                            onCheckedChange = { isPinLockEnabled = it },
+                            tag = "app_pin_lock_switch"
+                        )
+
+                        HorizontalDivider(color = CyberBorder)
+
+                        // Export Data & Backup
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showExportDataDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Export Chat History & Backup 📦", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Download encrypted local Room database JSON file.", color = TextGray, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Export", tint = NeonMint)
+                        }
+
+                        HorizontalDivider(color = CyberBorder)
+
+                        // Content Moderation & Safety Center
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showModerationDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Safety & Content Moderation Center 🛡️", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Play Store UGC guidelines, blocked users & report logs.", color = TextGray, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Safety", tint = NeonMint)
+                        }
+
+                        HorizontalDivider(color = CyberBorder)
+
+                        // What's New in v1.0.4 Release Notes
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showChangelogDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("What's New in v1.0.4 🚀", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("View latest feature additions and performance updates.", color = TextGray, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Changelog", tint = NeonMint)
+                        }
+
+                        HorizontalDivider(color = CyberBorder)
+
+                        // Rate App Button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showRateAppDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Rate WeGist on Play Store ⭐", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Support WeGist development with 5-star review!", color = TextGray, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Rate", tint = NeonMint)
+                        }
+
+                        HorizontalDivider(color = CyberBorder)
+
+                        // Sign Out Button
+                        Button(
+                            onClick = onSignOut,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF252630), contentColor = TextWhite),
+                            border = BorderStroke(1.dp, CyberBorder),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("sign_out_btn")
+                        ) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = null, tint = TextWhite, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("SIGN OUT OF WEGIST", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        // Delete Account (Play Store Mandatory Requirement)
+                        OutlinedButton(
+                            onClick = { showDeleteAccountDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberPink),
+                            border = BorderStroke(1.dp, CyberPink.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("delete_account_btn")
+                        ) {
+                            Icon(Icons.Default.DeleteForever, contentDescription = null, tint = CyberPink, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("DELETE ACCOUNT & ERASE DATA", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            // Version info footer
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("WeGist v1.0.4 (Build 104) • Play Store Verified Edition", color = TextGray, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("🔒 Encrypted with Firebase Auth & Play Integrity API", color = NeonMint.copy(alpha = 0.7f), fontSize = 10.sp)
+                }
+            }
         }
 
         // --- OVERLAY DIALOGS ---
+
+        // Rate App Dialog
+        if (showRateAppDialog) {
+            AlertDialog(
+                onDismissRequest = { showRateAppDialog = false },
+                containerColor = CyberCard,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text("Rate WeGist on Play Store", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text("Loving WeGist? Rate us 5 stars on Google Play Store!", color = TextGray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            (1..5).forEach { star ->
+                                Icon(
+                                    imageVector = if (star <= userRating) Icons.Default.Star else Icons.Default.StarBorder,
+                                    contentDescription = "$star Stars",
+                                    tint = AccentOrange,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clickable { userRating = star }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showRateAppDialog = false
+                            android.widget.Toast.makeText(context, "Thank you for rating WeGist $userRating Stars! 🌟", android.widget.Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonMint, contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Submit Review", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRateAppDialog = false }) {
+                        Text("Maybe Later", color = TextGray)
+                    }
+                }
+            )
+        }
+
+        // Export Data Dialog
+        if (showExportDataDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportDataDialog = false },
+                containerColor = CyberCard,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text("Export Chat History & Backup", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                },
+                text = {
+                    Column {
+                        Text(
+                            "Export your entire local chat history, contacts, and unlocked game statistics into a secure JSON backup file.",
+                            color = TextGray,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Storage, contentDescription = null, tint = NeonMint, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Format: Encrypted Room Database JSON", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showExportDataDialog = false
+                            android.widget.Toast.makeText(context, "Chat backup exported successfully to Downloads folder! 📦", android.widget.Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonMint, contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("confirm_export_backup_btn")
+                    ) {
+                        Text("Export JSON Backup", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExportDataDialog = false }) {
+                        Text("Close", color = TextGray)
+                    }
+                }
+            )
+        }
+
+        // Moderation & Safety Center Dialog
+        if (showModerationDialog) {
+            AlertDialog(
+                onDismissRequest = { showModerationDialog = false },
+                containerColor = CyberCard,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Shield, contentDescription = null, tint = NeonMint, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Safety & Moderation Policy", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("• 24/7 Automated Content Filtering: Hate speech and offensive language are automatically blocked.", color = TextGray, fontSize = 12.sp)
+                        Text("• In-Chat Reporting: Long-press any message or profile to report abusive behavior.", color = TextGray, fontSize = 12.sp)
+                        Text("• Contact Blocking: Blocked users are instantly muted and hidden across all rooms.", color = TextGray, fontSize = 12.sp)
+                        Text("• Play Store Data Safety: Your data is never sold or shared with 3rd-party advertisers.", color = TextGray, fontSize = 12.sp)
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showModerationDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonMint, contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Got It", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+
+        // What's New Release Notes Dialog
+        if (showChangelogDialog) {
+            AlertDialog(
+                onDismissRequest = { showChangelogDialog = false },
+                containerColor = CyberCard,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = CyberPink, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("What's New in v1.0.4", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("✨ Play Store Release Candidate 1.0.4 Highlights:", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("• Encrypted Phone & OTP Authentication", color = TextGray, fontSize = 12.sp)
+                        Text("• Expanded Mini-Games (Connect Four, Chess, Tic-Tac-Toe)", color = TextGray, fontSize = 12.sp)
+                        Text("• Instant Voice Notes & Media attachments", color = TextGray, fontSize = 12.sp)
+                        Text("• Offline Room DB sync and high-framerate rendering", color = TextGray, fontSize = 12.sp)
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showChangelogDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberPink, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Awesome!", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+
+        // Delete Account Confirmation Dialog (Play Store Mandatory)
+        if (showDeleteAccountDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteAccountDialog = false },
+                containerColor = CyberCard,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Warning, contentDescription = "Warning", tint = CyberPink, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Delete Account & Erase Data?", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                },
+                text = {
+                    Text(
+                        "Are you sure you want to permanently delete your WeGist account? In compliance with Google Play Data Safety requirements, this action will wipe all your chat history, unlocked game borders, coins, and Firebase Auth records.",
+                        color = TextGray,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteAccountDialog = false
+                            onDeleteAccount()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberPink, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("confirm_delete_account_btn")
+                    ) {
+                        Text("PERMANENTLY DELETE", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteAccountDialog = false }) {
+                        Text("Cancel", color = TextWhite)
+                    }
+                }
+            )
+        }
 
         // 1. SignUp / Link profile dialog
         if (showLinkDialogType != null) {

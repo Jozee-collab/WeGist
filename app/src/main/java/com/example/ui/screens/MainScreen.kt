@@ -1,7 +1,7 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Person
@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -149,6 +150,24 @@ fun MainScreen(
                 onPlayChessMove = { msgId, fromIdx, toIdx ->
                     viewModel.playChessMove(msgId, fromIdx, toIdx)
                 },
+                onPlayConnectFourMove = { msgId, columnIdx ->
+                    viewModel.playConnectFourMove(msgId, columnIdx)
+                },
+                onPlayBattleshipMove = { msgId, cellIdx ->
+                    viewModel.playBattleshipMove(msgId, cellIdx)
+                },
+                onPlayDiceDuelMove = { msgId ->
+                    viewModel.playDiceDuelMove(msgId)
+                },
+                onPlayMemoryMatchMove = { msgId, cardIdx ->
+                    viewModel.playMemoryMatchMove(msgId, cardIdx)
+                },
+                onPlayNumberGuesserMove = { msgId, guess ->
+                    viewModel.playNumberGuesserMove(msgId, guess)
+                },
+                onPlayBlackjackMove = { msgId, action ->
+                    viewModel.playBlackjackMove(msgId, action)
+                },
                 onReactToMessage = { msgId, emoji ->
                     viewModel.reactToMessage(msgId, emoji)
                 },
@@ -185,123 +204,146 @@ fun MainScreen(
         else -> {
             Scaffold(
                 bottomBar = {
-                    NavigationBar(
-                        containerColor = CyberCard,
-                        tonalElevation = 8.dp,
-                        modifier = Modifier.testTag("main_bottom_nav_bar")
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CyberCard),
+                        contentAlignment = Alignment.Center
                     ) {
-                        // Tab 1: CHATS
-                        NavigationBarItem(
-                            selected = selectedTab == "CHATS",
-                            onClick = { selectedTab = "CHATS" },
-                            icon = {
-                                Icon(
-                                    imageVector = if (selectedTab == "CHATS") Icons.Default.Forum else Icons.Outlined.Forum,
-                                    contentDescription = "Chats"
-                                )
-                            },
-                            label = { Text("Chats", fontSize = 11.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = NeonMint,
-                                indicatorColor = NeonMint,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.testTag("tab_chats_btn")
-                        )
+                        NavigationBar(
+                            containerColor = CyberCard,
+                            tonalElevation = 8.dp,
+                            modifier = Modifier
+                                .widthIn(max = 1000.dp)
+                                .testTag("main_bottom_nav_bar")
+                        ) {
+                            // Tab 1: CHATS
+                            NavigationBarItem(
+                                selected = selectedTab == "CHATS",
+                                onClick = { selectedTab = "CHATS" },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == "CHATS") Icons.Default.Forum else Icons.Outlined.Forum,
+                                        contentDescription = "Chats"
+                                    )
+                                },
+                                label = { Text("Chats", fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = NeonMint,
+                                    indicatorColor = NeonMint,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier.testTag("tab_chats_btn")
+                            )
 
-                        // Tab 1.5: WEGIST FEED & CLIPS
-                        NavigationBarItem(
-                            selected = selectedTab == "FEED",
-                            onClick = { selectedTab = "FEED" },
-                            icon = {
-                                Icon(
-                                    imageVector = if (selectedTab == "FEED") Icons.Default.Share else Icons.Outlined.Share,
-                                    contentDescription = "Feed"
-                                )
-                            },
-                            label = { Text("Feed", fontSize = 11.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = NeonMint,
-                                indicatorColor = NeonMint,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.testTag("tab_feed_btn")
-                        )
+                            // Tab 1.5: WEGIST FEED & CLIPS
+                            NavigationBarItem(
+                                selected = selectedTab == "FEED",
+                                onClick = { selectedTab = "FEED" },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == "FEED") Icons.Default.Share else Icons.Outlined.Share,
+                                        contentDescription = "Feed"
+                                    )
+                                },
+                                label = { Text("Feed", fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = NeonMint,
+                                    indicatorColor = NeonMint,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier.testTag("tab_feed_btn")
+                            )
 
-                        // Tab 2: LIVE STREAMS
-                        NavigationBarItem(
-                            selected = selectedTab == "LIVE",
-                            onClick = { selectedTab = "LIVE" },
-                            icon = {
-                                Icon(
-                                    imageVector = if (selectedTab == "LIVE") Icons.Default.Sensors else Icons.Outlined.Sensors,
-                                    contentDescription = "Streams"
-                                )
-                            },
-                            label = { Text("Streams", fontSize = 11.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = NeonMint,
-                                indicatorColor = NeonMint,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.testTag("tab_streams_btn")
-                        )
+                            // Tab 2: LIVE STREAMS
+                            NavigationBarItem(
+                                selected = selectedTab == "LIVE",
+                                onClick = { selectedTab = "LIVE" },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == "LIVE") Icons.Default.Sensors else Icons.Outlined.Sensors,
+                                        contentDescription = "Streams"
+                                    )
+                                },
+                                label = { Text("Streams", fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = NeonMint,
+                                    indicatorColor = NeonMint,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier.testTag("tab_streams_btn")
+                            )
 
-                        // Tab 3: ARCADE MINI GAMES
-                        NavigationBarItem(
-                            selected = selectedTab == "GAMES",
-                            onClick = { selectedTab = "GAMES" },
-                            icon = {
-                                Icon(
-                                    imageVector = if (selectedTab == "GAMES") Icons.Default.VideogameAsset else Icons.Outlined.VideogameAsset,
-                                    contentDescription = "Arcade"
-                                )
-                            },
-                            label = { Text("Arcade", fontSize = 11.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = NeonMint,
-                                indicatorColor = NeonMint,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.testTag("tab_arcade_btn")
-                        )
+                            // Tab 3: ARCADE MINI GAMES
+                            NavigationBarItem(
+                                selected = selectedTab == "GAMES",
+                                onClick = { selectedTab = "GAMES" },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == "GAMES") Icons.Default.VideogameAsset else Icons.Outlined.VideogameAsset,
+                                        contentDescription = "Arcade"
+                                    )
+                                },
+                                label = { Text("Arcade", fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = NeonMint,
+                                    indicatorColor = NeonMint,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier.testTag("tab_arcade_btn")
+                            )
 
-                        // Tab 4: PROFILE SETTINGS
-                        NavigationBarItem(
-                            selected = selectedTab == "PROFILE",
-                            onClick = { selectedTab = "PROFILE" },
-                            icon = {
-                                Icon(
-                                    imageVector = if (selectedTab == "PROFILE") Icons.Default.Person else Icons.Outlined.Person,
-                                    contentDescription = "Profile"
-                                )
-                            },
-                            label = { Text("Profile", fontSize = 11.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = NeonMint,
-                                indicatorColor = NeonMint,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.testTag("tab_profile_btn")
-                        )
+                            // Tab 4: PROFILE SETTINGS
+                            NavigationBarItem(
+                                selected = selectedTab == "PROFILE",
+                                onClick = { selectedTab = "PROFILE" },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selectedTab == "PROFILE") Icons.Default.Person else Icons.Outlined.Person,
+                                        contentDescription = "Profile"
+                                    )
+                                },
+                                label = { Text("Profile", fontSize = 11.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = NeonMint,
+                                    indicatorColor = NeonMint,
+                                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                    unselectedTextColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier.testTag("tab_profile_btn")
+                            )
+                        }
                     }
                 },
                 containerColor = CyberSlate,
                 modifier = modifier
             ) { innerPadding ->
-                val nestedModifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    val maxW = maxWidth
+                    val nestedModifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (maxW > 840.dp) {
+                                Modifier
+                                    .widthIn(max = 1000.dp)
+                                    .align(Alignment.TopCenter)
+                            } else {
+                                Modifier
+                            }
+                        )
 
                 when (selectedTab) {
                     "CHATS" -> {
@@ -377,6 +419,8 @@ fun MainScreen(
                             onAwardCoins = { coins -> viewModel.awardCoins(coins) },
                             onInviteFriend = { friendId, gameName -> viewModel.sendGameInviteToFriend(friendId, gameName) },
                             onSearchClicked = { showGlobalSearch = true },
+                            onPerformDailyCheckIn = { viewModel.performDailyCheckIn() },
+                            onShareBragPost = { game, result -> viewModel.shareBragPost(game, result) },
                             onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
                             modifier = nestedModifier
                         )
@@ -399,11 +443,15 @@ fun MainScreen(
                             onSearchClicked = { showGlobalSearch = true },
                             onClaimQuest = { questId, xp, coins -> viewModel.claimQuest(questId, xp, coins) },
                             onUpgradePremium = { tier -> viewModel.upgradeToPremium(tier) },
+                            onEnterReferralCode = { code -> viewModel.enterReferralCode(code) },
+                            onSignOut = { viewModel.signOut() },
+                            onDeleteAccount = { viewModel.deleteAccount() },
                             modifier = nestedModifier
                         )
                     }
                 }
             }
+        }
         }
     }
 }

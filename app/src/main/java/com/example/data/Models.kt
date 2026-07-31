@@ -66,7 +66,12 @@ data class UserStats(
     val isPremium: Boolean = false,
     val premiumTier: String = "FREE",
     val storageUsedBytes: Long = 26214400L,
-    val storageLimitBytes: Long = 15L * 1024 * 1024 * 1024
+    val storageLimitBytes: Long = 15L * 1024 * 1024 * 1024,
+    val dailyStreak: Int = 1,
+    val lastCheckInTime: Long = 0L,
+    val referralCode: String = "WEGIST99",
+    val referredByCode: String = "",
+    val unlockedBorder: String = "NONE"
 )
 
 @Entity(tableName = "posts")
