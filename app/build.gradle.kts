@@ -73,6 +73,13 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+
+  lint {
+    // WeGist is a single-activity Compose app with no Fragments at all, so the
+    // fragment-version requirement for registerForActivityResult does not
+    // apply here (false positive from androidx.activity's lint checks).
+    disable += "InvalidFragmentVersionForActivityResult"
+  }
 }
 
 tasks.withType<Test> {
