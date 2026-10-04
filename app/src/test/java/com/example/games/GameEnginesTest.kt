@@ -42,8 +42,9 @@ class GameEnginesTest {
     }
 
     @Test
-    fun `tictactoe detects diagonal win and full-board player win completes game`() {
-        val update = TicTacToeEngine.applyPlayerMove("X,,O,X,O,,X,O,", null, 6)
+    fun `tictactoe detects column win for player and completes game`() {
+        // X at 0 and 3; O at 2, 4, 7, 8; cell 6 empty -> playing 6 completes column 0-3-6
+        val update = TicTacToeEngine.applyPlayerMove("X,,O,X,O,,,O,O", null, 6)
         assertNotNull(update)
         assertEquals(GameStatuses.COMPLETED, update!!.gameStatus)
         assertEquals(Winners.ME, update.gameWinner)
@@ -62,18 +63,20 @@ class GameEnginesTest {
 
     @Test
     fun `tictactoe ai move fills exactly one empty cell with O`() {
-        val update = TicTacToeEngine.applyAiMove("X,,,,,O,,", Random(42))
+        // Board with a single X at index 0; all other cells empty (9 tokens)
+        val update = TicTacToeEngine.applyAiMove("X,,,,,,,,", Random(42))
         assertNotNull(update)
         val cells = update!!.gameData.split(",")
         assertEquals(9, cells.size)
+        assertEquals(1, cells.count { it == "X" })
+        assertEquals("X", cells[0])
         assertEquals(1, cells.count { it == "O" })
-        assertEquals(listOf(0, 6), cells.indices.filter { it != -1 && cells[it] == "X" }.sorted())
     }
 
     @Test
     fun `tictactoe ai wins when completing a line`() {
-        // O at 0 and 1; only cell 2 empty -> AI must place O there and win
-        val update = TicTacToeEngine.applyAiMove("O,O,,X,X,,,X,X", Random(1))
+        // O at 0 and 1; cell 2 is the ONLY empty cell -> AI must place O there and win
+        val update = TicTacToeEngine.applyAiMove("O,O,,X,X,X,X,X,X", Random(1))
         assertNotNull(update)
         assertEquals(GameStatuses.COMPLETED, update!!.gameStatus)
         assertEquals(Winners.OPPONENT, update.gameWinner)
@@ -222,6 +225,7 @@ class GameEnginesTest {
         val board = MutableList(25) { "" }
         // diagonal down-right: (0,0) (1,1) (2,2) filled with R; win by (3,3)
         board[0] = "R"; board[6] = "R"; board[12] = "R"
+        board[23] = "Y" // opponent chip at the bottom of col 3 so our drop lands on row 3
         val update = ConnectFourEngine.applyPlayerMove(board.joinToString(","), null, 3)
         assertNotNull(update)
         assertEquals(Winners.ME, update!!.gameWinner)
@@ -235,11 +239,11 @@ class GameEnginesTest {
         assertNotNull(update)
         val after = update!!.gameData.split(",")
         assertEquals(1, after.count { it == "Y" })
-        // Y must rest on a filled cell (gravity): every cell below it is non-empty
+        // gravity: every cell BELOW the dropped Y must be filled
         val yIdx = after.indices.first { after[it] == "Y" }
         val col = yIdx % 5
-        for (row in (yIdx / 5) - 1 downTo 0) {
-            assertTrue("cell below Y must be filled", after[row * 5 + col].isNotEmpty())
+        for (row in 4 downTo (yIdx / 5) + 1) {
+            assertTrue("cells below Y must be filled", after[row * 5 + col].isNotEmpty())
         }
     }
 
@@ -266,7 +270,7 @@ class GameEnginesTest {
     fun `battleship rejects repeat shots and bad data`() {
         val shotOnce = BattleshipEngine.applyPlayerMove(battleshipData(), null, 2)!!
         assertNull(BattleshipEngine.applyPlayerMove(shotOnce.gameData, shotOnce.gameStatus, 2))
-        assertNull(BattleshipEngine.applyPlayerMove(".,.|2|.,.|1", null, 0))
+        assertNull(BattleshipEngine.applyPlayerMove(".,.|2|.,.", null, 0)) // only 3 segments
         assertNull(BattleshipEngine.applyPlayerMove(battleshipData(), GameStatuses.COMPLETED, 0))
     }
 

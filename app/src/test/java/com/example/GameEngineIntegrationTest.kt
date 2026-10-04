@@ -78,7 +78,7 @@ class GameEngineIntegrationTest {
                 type = "GAME_INVITE",
                 gameType = "TIC_TAC_TOE",
                 gameStatus = status,
-                gameData = ",,,,,,,,,"
+                gameData = List(9) { "" }.joinToString(",") // exactly 9 cells
             )
         )
         return id.toInt()
@@ -110,7 +110,7 @@ class GameEngineIntegrationTest {
     fun `winning tic tac toe move completes game and awards coins`() = runBlocking {
         viewModel.allMessages.first { it.isNotEmpty() }
 
-        // Board where X wins by playing cell 6 (diagonal 0-4-8... use row 0-1-2? build a 0,4 win)
+        // X at 0 and 3; O at 2, 4, 7, 8; cell 6 empty -> playing 6 wins column 0-3-6
         val id = repository.insertMessage(
             ChatMessage(
                 chatId = "alice",
@@ -120,7 +120,7 @@ class GameEngineIntegrationTest {
                 type = "GAME_INVITE",
                 gameType = "TIC_TAC_TOE",
                 gameStatus = "ACTIVE",
-                gameData = "X,,O,X,O,,O,O," // X at 0,1 -> wait: cells 0=X, 3=X; playing 6 gives 0,3,6 column win
+                gameData = "X,,O,X,O,,,O,O"
             )
         ).toInt()
 
