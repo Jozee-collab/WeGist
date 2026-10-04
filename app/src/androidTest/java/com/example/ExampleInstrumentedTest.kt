@@ -7,16 +7,16 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Instrumented test, which will execute on an Android device.
+ * Instrumented test, which executes on an Android device.
  *
- * See [testing documentation](http://d.android.com/tools/testing).
+ * Note: targetContext.packageName returns the applicationId
+ * ("com.wegist.app"), not the source namespace (com.example).
  */
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
   @Test
   fun useAppContext() {
-    // Context of the app under test.
     val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-    assertEquals("com.example", appContext.packageName)
+    assertEquals("com.wegist.app", appContext.packageName)
   }
 }

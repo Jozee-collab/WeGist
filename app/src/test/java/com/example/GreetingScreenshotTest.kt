@@ -1,5 +1,7 @@
 package com.example
 
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.example.ui.theme.MyApplicationTheme
@@ -11,6 +13,15 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Minimal test-only composable kept for the screenshot test below.
+ * (Previously lived in MainActivity as deprecated test compatibility helper.)
+ */
+@androidx.compose.runtime.Composable
+fun Greeting(name: String, modifier: Modifier = Modifier) {
+    Text(text = "Hello $name!", modifier = modifier)
+}
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

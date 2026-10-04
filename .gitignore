@@ -15,4 +15,8 @@
 .cxx
 local.properties
 .env
-debug.keystore
+# Firebase config contains project identifiers — keep it out of git
+app/google-services.json
+# Signing keys must never be committed
+*.jks
+*.keystore

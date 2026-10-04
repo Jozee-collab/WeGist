@@ -5,9 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
+// v9: removed the misleading isEncrypted / encryptionAlgorithm columns from ChatMessage.
+// The app is local-first demo storage, not an E2E-encrypted messenger (yet).
 @Database(
     entities = [ChatMessage::class, LiveStream::class, UserStats::class, Post::class, Reel::class, Friend::class, FriendRequest::class, Story::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -15,8 +15,6 @@ data class ChatMessage(
     val gameStatus: String? = null, // PENDING, ACTIVE, COMPLETED, REJECTED
     val gameWinner: String? = null,
     val gameData: String? = null, // Holds Tic-Tac-Toe grid or state (e.g. "X,O,,O,X,,,X,")
-    val isEncrypted: Boolean = true,
-    val encryptionAlgorithm: String = "Signal-GCM-256",
     val reactionsJson: String = "[]",
     val timestamp: Long = System.currentTimeMillis()
 )

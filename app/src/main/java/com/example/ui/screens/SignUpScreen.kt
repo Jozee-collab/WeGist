@@ -703,7 +703,7 @@ fun SignUpScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Text(
-                                        text = "Simple, secure, and reliable messaging combined with live stream views and interactive mini-games, encrypted end-to-end.",
+                                        text = "Simple, reliable messaging combined with live stream views and interactive mini-games — local-first, with your data stored on your device.",
                                         color = TextGrayDark,
                                         fontSize = 13.sp,
                                         lineHeight = 18.sp,
@@ -1201,11 +1201,11 @@ fun SignUpScreen(
             text = {
                 LazyColumn(modifier = Modifier.height(280.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     item {
-                        Text("Play Store Safety & Data Policy (v1.0.4)", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Safety & Data Policy", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                     item {
                         Text(
-                            "1. Data Security & Encryption:\nWeGist uses Firebase Authentication and TLS 1.3 encryption to protect user credentials, phone numbers, and communication tokens.",
+                            "1. Data Storage & Security:\nWeGist is a local-first demo: your messages, profile and game data are stored in a local database on your device and are never uploaded. Phone sign-in uses Firebase Authentication when configured; otherwise a local demo verification is used. Messages are not yet end-to-end encrypted — E2EE is planned for the online release.",
                             color = TextGrayDark,
                             fontSize = 12.sp
                         )

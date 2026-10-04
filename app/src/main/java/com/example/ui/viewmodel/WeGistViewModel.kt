@@ -1,17 +1,24 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.example.games.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/**
+ * App-wide ViewModel for the WeGist demo.
+ *
+ * NOTE: WeGist is a local-first demo. Everything that looks like network
+ * activity (opponent replies, stream viewers, friend discovery, cloud backup)
+ * is SIMULATED locally in this build — see the individual functions marked
+ * "SIMULATED" below. In-chat game rules live in the pure [com.example.games]
+ * engines; this class only persists results and awards coins/XP.
+ */
 class WeGistViewModel(
     application: Application,
     private val repository: Repository
@@ -68,7 +75,7 @@ class WeGistViewModel(
     val isSyncingWithFirebase = MutableStateFlow(false)
     val firebaseSyncStatus = MutableStateFlow<String?>(null)
 
-    // LFG Lobbies list
+    // LFG Lobbies list (SIMULATED: demo lobbies, local only)
     val lfgLobbies = MutableStateFlow<List<LfgLobby>>(listOf(
         LfgLobby(
             id = "lobby_1",
@@ -116,252 +123,12 @@ class WeGistViewModel(
     val arcadeHighscore = MutableStateFlow(3200)
 
     init {
-        // Seed initial data if database is empty
+        // Seed demo data if the local database is empty
         viewModelScope.launch {
-            repository.clearNonUserStreams()
-            
-            // Seed UserStats
-            repository.insertUserStats(UserStats())
-
-            // Seed Live Streams if empty
-            val currentStreams = repository.activeStreams.first()
-            if (currentStreams.isEmpty()) {
-                repository.insertStream(
-                    LiveStream(
-                        id = "stream_bob",
-                        streamerName = "Bob_Destroyer",
-                        streamerAvatar = "img_profile_me_1783282394572", // generic
-                        streamTitle = "Breaking brick highscores today! 🔥",
-                        gameName = "Brick Breaker Classic",
-                        thumbnailResName = "img_puzzle_stream_thumbnail_1783282381092",
-                        viewerCount = 1420,
-                        isUserStream = false
-                    )
-                )
-                repository.insertStream(
-                    LiveStream(
-                        id = "stream_queen",
-                        streamerName = "SpaceQueen",
-                        streamerAvatar = "img_profile_me_1783282394572",
-                        streamTitle = "Ranked space matches! 🌌 Let's go!",
-                        gameName = "Space Shooter",
-                        thumbnailResName = "img_retro_stream_thumbnail_1783282368689",
-                        viewerCount = 890,
-                        isUserStream = false
-                    )
-                )
-            }
-
-            // Seed initial messages to simulate active chats
-            val currentMessages = repository.allMessages.first()
-            if (currentMessages.isEmpty()) {
-                // Alice Chat (chatId = "alice")
-                repository.insertMessage(
-                    ChatMessage(
-                        chatId = "alice",
-                        senderName = "Alice (Retro Gamer)",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        content = "Hey! Down for some casual gaming? 🎮",
-                        type = "TEXT"
-                    )
-                )
-                repository.insertMessage(
-                    ChatMessage(
-                        chatId = "alice",
-                        senderName = "Alice (Retro Gamer)",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        content = "I challenge you to Tic-Tac-Toe! Make your move:",
-                        type = "GAME_INVITE",
-                        gameType = "TIC_TAC_TOE",
-                        gameStatus = "PENDING",
-                        gameData = ",,,,,,,," // Empty board (9 commas-separated cells)
-                    )
-                )
-
-                // Bob Chat (chatId = "bob")
-                repository.insertMessage(
-                    ChatMessage(
-                        chatId = "bob",
-                        senderName = "Bob_Destroyer",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        content = "What's up, I just went live broadcasting Brick Breaker!",
-                        type = "TEXT"
-                    )
-                )
-                repository.insertMessage(
-                    ChatMessage(
-                        chatId = "bob",
-                        senderName = "Bob_Destroyer",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        content = "https://wegist.live/stream_bob",
-                        type = "MEDIA" // simulated stream sharing
-                    )
-                )
-            }
-
-            // Seed initial posts if empty
-            val currentPosts = repository.allPosts.first()
-            if (currentPosts.isEmpty()) {
-                repository.insertPost(
-                    Post(
-                        authorName = "Bob_Destroyer",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        content = "Just set an absolute new personal highscore in Brick Breaker! Check out my stream tomorrow 🎮🔥 I might stream Rock-Paper-Scissors challenges too!",
-                        imageUrl = "img_puzzle_stream_thumbnail_1783282381092",
-                        likesCount = 24,
-                        commentsCount = 3,
-                        hasLiked = false
-                    )
-                )
-                repository.insertPost(
-                    Post(
-                        authorName = "SpaceQueen",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        content = "Space Shooter rank matching is so intense tonight! Who's down for a co-op or 1v1 challenge? Let's go! 🌌🛸🚀",
-                        likesCount = 18,
-                        commentsCount = 7,
-                        hasLiked = false
-                    )
-                )
-                repository.insertPost(
-                    Post(
-                        authorName = "Alice (Retro Gamer)",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        content = "Hello WeGist! Just joined the best gaming social community around! 👾⚡ Mini-games here are so addictive.",
-                        likesCount = 31,
-                        commentsCount = 12,
-                        hasLiked = false
-                    )
-                )
-            }
-
-            // Seed initial reels if empty
-            val currentReels = repository.allReels.first()
-            if (currentReels.isEmpty()) {
-                repository.insertReel(
-                    Reel(
-                        creatorName = "Alice (Retro Gamer)",
-                        creatorAvatar = "img_profile_me_1783282394572",
-                        caption = "Brick Breaker insane double reflection trickshot! 🎯🙌 Double coins incoming!",
-                        gameTag = "Brick Breaker Classic",
-                        thumbnailResName = "img_puzzle_stream_thumbnail_1783282381092",
-                        likesCount = 145,
-                        commentsCount = 9,
-                        hasLiked = false,
-                        viewsCount = 1205
-                    )
-                )
-                repository.insertReel(
-                    Reel(
-                        creatorName = "SpaceQueen",
-                        creatorAvatar = "img_profile_me_1783282394572",
-                        caption = "Surviving with literally 1 HP in the space shooter arena! absolute madness! 🛸💥🌌",
-                        gameTag = "Space Shooter",
-                        thumbnailResName = "img_retro_stream_thumbnail_1783282368689",
-                        likesCount = 289,
-                        commentsCount = 24,
-                        hasLiked = false,
-                        viewsCount = 3491
-                    )
-                )
-            }
-
-            // Seed initial friends
-            val currentFriends = repository.allFriends.first()
-            if (currentFriends.isEmpty()) {
-                repository.insertFriend(
-                    Friend(
-                        userId = "alice",
-                        username = "Alice (Retro Gamer)",
-                        avatarResName = "img_profile_me_1783282394572",
-                        globalRank = 42,
-                        wins = 32,
-                        isOnline = true,
-                        presence = "online"
-                    )
-                )
-                repository.insertFriend(
-                    Friend(
-                        userId = "bob",
-                        username = "Bob_Destroyer",
-                        avatarResName = "img_profile_me_1783282394572",
-                        globalRank = 110,
-                        wins = 25,
-                        isOnline = true,
-                        presence = "in-game"
-                    )
-                )
-                repository.insertFriend(
-                    Friend(
-                        userId = "dave",
-                        username = "Dave_The_Noob",
-                        avatarResName = "img_profile_me_1783282394572",
-                        globalRank = 230,
-                        wins = 2,
-                        isOnline = false,
-                        presence = "offline"
-                    )
-                )
-            }
-
-            // Seed initial incoming friend requests
-            val currentRequests = repository.pendingRequests.first()
-            if (currentRequests.isEmpty()) {
-                repository.insertFriendRequest(
-                    FriendRequest(
-                        senderId = "spacequeen",
-                        senderName = "SpaceQueen",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        receiverId = "me",
-                        status = "PENDING"
-                    )
-                )
-                repository.insertFriendRequest(
-                    FriendRequest(
-                        senderId = "charlie",
-                        senderName = "GamerCharlie",
-                        senderAvatar = "img_profile_me_1783282394572",
-                        receiverId = "me",
-                        status = "PENDING"
-                    )
-                )
-            }
-
-            // Seed initial stories if empty
-            val currentStories = repository.allStories.first()
-            if (currentStories.isEmpty()) {
-                repository.insertStory(
-                    Story(
-                        authorName = "Alice (Retro Gamer)",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        textContent = "Warming up with Brick Breaker before tonight's highscore match! 🧱🙌",
-                        timestamp = System.currentTimeMillis() - 3600000,
-                        isViewed = false
-                    )
-                )
-                repository.insertStory(
-                    Story(
-                        authorName = "SpaceQueen",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        textContent = "Look at this amazing Space Shooter galaxy art background! 🌌🛸",
-                        imageUrl = "img_retro_stream_thumbnail_1783282368689",
-                        timestamp = System.currentTimeMillis() - 7200000,
-                        isViewed = false
-                    )
-                )
-                repository.insertStory(
-                    Story(
-                        authorName = "Bob_Destroyer",
-                        authorAvatar = "img_profile_me_1783282394572",
-                        textContent = "Rethinking my Tic-Tac-Toe strategies. Nobody beats the Destroyer! 😈",
-                        timestamp = System.currentTimeMillis() - 10800000,
-                        isViewed = true
-                    )
-                )
-            }
+            DatabaseSeeder.seedIfEmpty(repository)
         }
 
-        // Periodic simulated comments/reactions when viewing a stream
+        // SIMULATED: periodic fake comments/reactions when viewing a stream
         startSimulatedStreamActivity()
     }
 
@@ -400,7 +167,7 @@ class WeGistViewModel(
                 senderName = userStats.value.username,
                 senderAvatar = userStats.value.avatarResName,
                 receiverId = targetUserId,
-                status = "PENDING"
+                status = GameStatuses.PENDING
             )
             repository.insertFriendRequest(request)
         }
@@ -417,7 +184,7 @@ class WeGistViewModel(
                     globalRank = (10..500).random(),
                     wins = (5..50).random(),
                     isOnline = true,
-                    presence = "online"
+                    presence = Presence.ONLINE
                 )
             )
 
@@ -427,7 +194,7 @@ class WeGistViewModel(
                 senderName = "System",
                 senderAvatar = "img_profile_me_1783282394572",
                 content = "You are now friends with ${request.senderName}! Let's invite them to games or streams! 🎮📺",
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
             repository.insertMessage(welcomeMsg)
         }
@@ -452,7 +219,7 @@ class WeGistViewModel(
             if (friend != null) {
                 val updated = friend.copy(
                     presence = presence,
-                    isOnline = (presence != "offline")
+                    isOnline = (presence != Presence.OFFLINE)
                 )
                 repository.insertFriend(updated)
             }
@@ -468,9 +235,9 @@ class WeGistViewModel(
                 senderName = me.username,
                 senderAvatar = me.avatarResName,
                 content = content,
-                type = "GAME_INVITE",
-                gameType = if (gameName.contains("Tic-Tac-Toe", ignoreCase = true)) "TIC_TAC_TOE" else "ROCK_PAPER_SCI",
-                gameStatus = "PENDING",
+                type = ChatTypes.GAME_INVITE,
+                gameType = if (gameName.contains("Tic-Tac-Toe", ignoreCase = true)) GameTypes.TIC_TAC_TOE else GameTypes.ROCK_PAPER_SCI,
+                gameStatus = GameStatuses.PENDING,
                 gameData = ",,,,,,,,"
             )
             repository.insertMessage(message)
@@ -486,7 +253,7 @@ class WeGistViewModel(
                 senderName = me.username,
                 senderAvatar = me.avatarResName,
                 content = content,
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
             repository.insertMessage(message)
         }
@@ -498,7 +265,7 @@ class WeGistViewModel(
             if (me.coins >= amount) {
                 // Deduct coins from user
                 repository.insertUserStats(me.copy(coins = me.coins - amount))
-                
+
                 // Add message to chat
                 val content = "Sent $amount Coins 🪙 to you!"
                 val message = ChatMessage(
@@ -506,12 +273,12 @@ class WeGistViewModel(
                     senderName = me.username,
                     senderAvatar = me.avatarResName,
                     content = content,
-                    type = "COINS_TRANSFER",
+                    type = ChatTypes.COINS_TRANSFER,
                     gameData = amount.toString()
                 )
                 repository.insertMessage(message)
-                
-                // Simulate receipt & reply from friend
+
+                // SIMULATED: receipt & reply from friend
                 delay(1500)
                 val replyContent = "Wow, thank you so much for the $amount Coins! 🪙 You're a legend! 💸🎮"
                 val name = if (chatId == "alice") "Alice (Retro Gamer)" else if (chatId == "bob") "Bob_Destroyer" else chatId.replaceFirstChar { it.uppercase() }
@@ -521,7 +288,7 @@ class WeGistViewModel(
                         senderName = name,
                         senderAvatar = "img_profile_me_1783282394572",
                         content = replyContent,
-                        type = "TEXT"
+                        type = ChatTypes.TEXT
                     )
                 )
                 com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
@@ -529,9 +296,9 @@ class WeGistViewModel(
         }
     }
 
-    // --- MESSAGING & GAMES ACTIONS ---
+    // --- MESSAGING ACTIONS ---
 
-    fun sendMessage(chatId: String, content: String, type: String = "TEXT", gameType: String? = null, gameData: String? = null) {
+    fun sendMessage(chatId: String, content: String, type: String = ChatTypes.TEXT, gameType: String? = null, gameData: String? = null) {
         viewModelScope.launch {
             val me = userStats.value
             val message = ChatMessage(
@@ -541,21 +308,22 @@ class WeGistViewModel(
                 content = content,
                 type = type,
                 gameType = gameType,
-                gameStatus = if (gameType != null) "PENDING" else null,
+                gameStatus = if (gameType != null) GameStatuses.PENDING else null,
                 gameData = gameData
             )
             repository.insertMessage(message)
 
-            // Dynamic interactive AI opponent reply
-            if (type == "TEXT") {
+            // SIMULATED: scripted "AI opponent" replies for plain text, files and
+            // custom game links. There is no real network peer in this demo.
+            if (type == ChatTypes.TEXT) {
                 delay(1200)
                 simulateOpponentReply(chatId, content)
-            } else if (type == "FILE") {
+            } else if (type == ChatTypes.FILE) {
                 delay(1500)
                 val parts = content.split("|")
                 val fileName = parts.getOrNull(0) ?: "file"
                 simulateFileReply(chatId, fileName)
-            } else if (type == "GAME_INVITE" && gameType == "CUSTOM_LINK") {
+            } else if (type == ChatTypes.GAME_INVITE && gameType == GameTypes.CUSTOM_LINK) {
                 delay(1800)
                 val parts = gameData?.split("|") ?: emptyList()
                 val gameName = parts.getOrNull(0) ?: "game"
@@ -573,7 +341,7 @@ class WeGistViewModel(
                 senderName = name,
                 senderAvatar = "img_profile_me_1783282394572",
                 content = replyContent,
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
         )
         com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
@@ -588,7 +356,7 @@ class WeGistViewModel(
                 senderName = name,
                 senderAvatar = "img_profile_me_1783282394572",
                 content = replyContent,
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
         )
         com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
@@ -614,129 +382,186 @@ class WeGistViewModel(
                 senderName = name,
                 senderAvatar = "img_profile_me_1783282394572",
                 content = replyContent,
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
         )
-        // Fire native push notification
+        // Fire local notification
         com.example.util.NotificationHelper.showNotification(getApplication(), name, replyContent)
     }
 
-    // Interactive Tic-Tac-Toe Move
+    // --- IN-CHAT TURN-BASED GAMES ---
+    // All rules live in the pure com.example.games engines; the ViewModel only
+    // persists the resulting message state and awards coins / wins.
+
+    /** Merges an engine result into a ChatMessage. Null fields stay unchanged. */
+    private fun applyGameUpdate(message: ChatMessage, update: GameUpdate): ChatMessage = message.copy(
+        gameStatus = update.gameStatus ?: message.gameStatus,
+        gameWinner = update.gameWinner ?: message.gameWinner,
+        gameData = update.gameData,
+        content = update.content
+    )
+
+    private suspend fun runAiFollowUp(afterMessage: ChatMessage, aiUpdate: GameUpdate?) {
+        if (aiUpdate != null) {
+            repository.updateMessage(applyGameUpdate(afterMessage, aiUpdate))
+        }
+    }
+
     fun playTicTacToeMove(messageId: Int, index: Int) {
         viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            val board = message.gameData?.split(",")?.toMutableList() ?: MutableList(9) { "" }
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = TicTacToeEngine.applyPlayerMove(message.gameData, message.gameStatus, index) ?: return@launch
+            val updatedMsg = applyGameUpdate(message, update)
+            repository.updateMessage(updatedMsg)
 
-            if (board[index].isEmpty() && message.gameStatus != "COMPLETED") {
-                // User moves as "X"
-                board[index] = "X"
-                val updatedBoardData = board.joinToString(",")
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(100)
+                incrementWins()
+            }
 
-                // Check win/draw
-                val isUserWin = checkTicTacToeWin(board, "X")
-                val isDraw = !board.contains("") && !isUserWin
-
-                val status = if (isUserWin || isDraw) "COMPLETED" else "ACTIVE"
-                val winner = if (isUserWin) "me" else if (isDraw) "DRAW" else null
-
-                val updatedMsg = message.copy(
-                    gameStatus = status,
-                    gameWinner = winner,
-                    gameData = updatedBoardData,
-                    content = if (isUserWin) "I won the Tic-Tac-Toe challenge! 🎉" else if (isDraw) "The Tic-Tac-Toe game is a draw!" else "Your turn in Tic-Tac-Toe!"
-                )
-                repository.updateMessage(updatedMsg)
-
-                if (isUserWin) {
-                    awardCoins(100)
-                    incrementWins()
-                }
-
-                // If game is active, trigger AI counter-move
-                if (status == "ACTIVE") {
-                    delay(1500)
-                    triggerTicTacToeAIMove(updatedMsg, board)
-                }
+            if (update.gameStatus == GameStatuses.ACTIVE) {
+                delay(1500)
+                runAiFollowUp(updatedMsg, TicTacToeEngine.applyAiMove(updatedMsg.gameData))
             }
         }
     }
 
-    private suspend fun triggerTicTacToeAIMove(message: ChatMessage, board: MutableList<String>) {
-        // Find empty cells
-        val emptyIndices = board.indices.filter { board[it].isEmpty() }
-        if (emptyIndices.isNotEmpty()) {
-            // Pick a random empty index
-            val aiMove = emptyIndices.random()
-            board[aiMove] = "O"
-            val updatedBoardData = board.joinToString(",")
-
-            val isAIWin = checkTicTacToeWin(board, "O")
-            val isDraw = !board.contains("") && !isAIWin
-
-            val status = if (isAIWin || isDraw) "COMPLETED" else "ACTIVE"
-            val winner = if (isAIWin) "opponent" else if (isDraw) "DRAW" else null
-
-            val updatedMsg = message.copy(
-                gameStatus = status,
-                gameWinner = winner,
-                gameData = updatedBoardData,
-                content = if (isAIWin) "Alice won the Tic-Tac-Toe challenge! 🤖" else if (isDraw) "The Tic-Tac-Toe game is a draw!" else "I made my move! Your turn!"
-            )
-            repository.updateMessage(updatedMsg)
-        }
-    }
-
-    private fun checkTicTacToeWin(board: List<String>, player: String): Boolean {
-        val winPatterns = listOf(
-            listOf(0, 1, 2), listOf(3, 4, 5), listOf(6, 7, 8), // Rows
-            listOf(0, 3, 6), listOf(1, 4, 7), listOf(2, 5, 8), // Columns
-            listOf(0, 4, 8), listOf(2, 4, 6)                  // Diagonals
-        )
-        return winPatterns.any { pattern ->
-            pattern.all { board[it] == player }
-        }
-    }
-
-    // Rock-Paper-Scissors Move
     fun playRockPaperScissors(messageId: Int, userChoice: String) {
         viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = RockPaperScissorsEngine.play(userChoice)
+            repository.updateMessage(applyGameUpdate(message, update))
 
-            val choices = listOf("ROCK", "PAPER", "SCISSORS")
-            val opponentChoice = choices.random()
-
-            val winner = when {
-                userChoice == opponentChoice -> "DRAW"
-                (userChoice == "ROCK" && opponentChoice == "SCISSORS") ||
-                (userChoice == "PAPER" && opponentChoice == "ROCK") ||
-                (userChoice == "SCISSORS" && opponentChoice == "PAPER") -> "me"
-                else -> "opponent"
-            }
-
-            val resultText = when (winner) {
-                "me" -> "I won! I chose $userChoice, Opponent chose $opponentChoice. 🎉"
-                "opponent" -> "Opponent won! I chose $userChoice, Opponent chose $opponentChoice. 🤖"
-                else -> "It's a tie! Both chose $userChoice. 🤝"
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = "COMPLETED",
-                gameWinner = winner,
-                gameData = "$userChoice,$opponentChoice",
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-
-            if (winner == "me") {
+            if (update.gameWinner == Winners.ME) {
                 awardCoins(80)
                 incrementWins()
             }
         }
     }
 
-    // --- LIVE STREAMING HUB ACTIONS ---
+    fun playTriviaAnswer(messageId: Int, selectedOptionIdx: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = TriviaEngine.answer(messageId, message.gameStatus, selectedOptionIdx) ?: return@launch
+            repository.updateMessage(applyGameUpdate(message, update))
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(50)
+            }
+        }
+    }
+
+    fun playChessMove(messageId: Int, fromIdx: Int, toIdx: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = ChessEngine.applyPlayerMove(message.gameData, message.gameStatus, fromIdx, toIdx) ?: return@launch
+            val updatedMsg = applyGameUpdate(message, update)
+            repository.updateMessage(updatedMsg)
+
+            if (update.needsAiFollowUp) {
+                delay(1500)
+                runAiFollowUp(updatedMsg, ChessEngine.applyAiMove(updatedMsg.gameData))
+            }
+        }
+    }
+
+    fun playConnectFourMove(messageId: Int, col: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = ConnectFourEngine.applyPlayerMove(message.gameData, message.gameStatus, col) ?: return@launch
+            val updatedMsg = applyGameUpdate(message, update)
+            repository.updateMessage(updatedMsg)
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(120)
+                incrementWins()
+            }
+
+            if (update.gameStatus == GameStatuses.ACTIVE) {
+                delay(1500)
+                runAiFollowUp(updatedMsg, ConnectFourEngine.applyAiMove(updatedMsg.gameData))
+            }
+        }
+    }
+
+    fun playBattleshipMove(messageId: Int, cellIdx: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = BattleshipEngine.applyPlayerMove(message.gameData, message.gameStatus, cellIdx) ?: return@launch
+            val updatedMsg = applyGameUpdate(message, update)
+            repository.updateMessage(updatedMsg)
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(150)
+                incrementWins()
+            }
+
+            if (update.gameStatus == GameStatuses.ACTIVE) {
+                delay(1500)
+                runAiFollowUp(updatedMsg, BattleshipEngine.applyAiMove(updatedMsg.gameData))
+            }
+        }
+    }
+
+    fun playDiceDuelMove(messageId: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = DiceDuelEngine.roll(message.gameData, message.gameStatus) ?: return@launch
+            repository.updateMessage(applyGameUpdate(message, update))
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(100)
+                incrementWins()
+            }
+        }
+    }
+
+    fun playMemoryMatchMove(messageId: Int, cardIdx: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = MemoryMatchEngine.applyPlayerMove(message.gameData, message.gameStatus, cardIdx) ?: return@launch
+            val updatedMsg = applyGameUpdate(message, update)
+            repository.updateMessage(updatedMsg)
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(120)
+                incrementWins()
+            }
+
+            if (update.needsAiFollowUp) {
+                delay(1500)
+                runAiFollowUp(updatedMsg, MemoryMatchEngine.applyAiMove(updatedMsg.gameData))
+            }
+        }
+    }
+
+    fun playNumberGuesserMove(messageId: Int, guess: Int) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = NumberGuessEngine.guess(message.gameData, message.gameStatus, guess) ?: return@launch
+            repository.updateMessage(applyGameUpdate(message, update))
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(100)
+                incrementWins()
+            }
+        }
+    }
+
+    fun playBlackjackMove(messageId: Int, action: String) {
+        viewModelScope.launch {
+            val message = allMessages.value.find { it.id == messageId } ?: return@launch
+            val update = BlackjackEngine.play(message.gameData, message.gameStatus, action) ?: return@launch
+            repository.updateMessage(applyGameUpdate(message, update))
+
+            if (update.gameWinner == Winners.ME) {
+                awardCoins(120)
+                incrementWins()
+            }
+        }
+    }
+
+    // --- LIVE STREAMING HUB ACTIONS (SIMULATED) ---
 
     private fun startSimulatedStreamActivity() {
         viewModelScope.launch {
@@ -757,7 +582,7 @@ class WeGistViewModel(
         activeStreamId.value = streamId
         _streamComments.value = emptyList() // clear on join
         if (streamId != null) {
-            // Seed a few initial comments
+            // Seed a few initial comments (SIMULATED)
             _streamComments.value = listOf(
                 StreamComment("Gamer99", "This gameplay is wild!", "🔥"),
                 StreamComment("RetroGuy", "No way, she actually made that jump!", "🙌")
@@ -787,7 +612,7 @@ class WeGistViewModel(
                 StreamComment("System", "Broadcast started successfully. You are now LIVE! 📡", "✨")
             )
 
-            // Let viewer count grow periodically
+            // SIMULATED: viewer count grows periodically (no real viewers)
             launch {
                 var viewers = 1
                 while (isUserBroadcasting.value) {
@@ -804,7 +629,7 @@ class WeGistViewModel(
         viewModelScope.launch {
             isUserBroadcasting.value = false
             repository.deleteStreamById("stream_user")
-            
+
             // Increment user stream count reward
             val me = userStats.value
             repository.insertUserStats(
@@ -1023,7 +848,7 @@ class WeGistViewModel(
             val now = System.currentTimeMillis()
             val oneDayMillis = 24 * 60 * 60 * 1000L
             val lastCheckIn = me.lastCheckInTime
-            
+
             var currentStreak = me.dailyStreak
             if (lastCheckIn > 0) {
                 val diff = now - lastCheckIn
@@ -1038,10 +863,10 @@ class WeGistViewModel(
             } else {
                 currentStreak = 1
             }
-            
+
             val multiplier = minOf(5, currentStreak)
             val rewardCoins = 100 * multiplier
-            
+
             repository.insertUserStats(
                 me.copy(
                     dailyStreak = currentStreak,
@@ -1071,7 +896,7 @@ class WeGistViewModel(
                 senderName = "System",
                 senderAvatar = "img_profile_me_1783282394572",
                 content = "Referral code '$cleanCode' activated! 🎉 Both of you earned 500 coins and you unlocked the Legendary Golden Profile Border! 🏆🟡",
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
             repository.insertMessage(referralMsg)
         }
@@ -1083,7 +908,7 @@ class WeGistViewModel(
             try {
                 com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
             } catch (e: Exception) {
-                // Safe fallback
+                // Firebase not configured (no google-services.json) — local demo mode.
             }
             val me = userStats.value
             repository.insertUserStats(me.copy(authPhone = "", authGmail = "", authFacebook = ""))
@@ -1095,7 +920,7 @@ class WeGistViewModel(
             try {
                 com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.delete()
             } catch (e: Exception) {
-                // Safe fallback
+                // Firebase not configured (no google-services.json) — local demo mode.
             }
             val me = userStats.value
             repository.insertUserStats(me.copy(authPhone = "", authGmail = "", authFacebook = "", username = "Gamer"))
@@ -1136,7 +961,7 @@ class WeGistViewModel(
             }
 
             val newJson = currentCompleted.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
-            
+
             var newXp = me.xp + xpAward
             var newLevel = me.level
             if (newXp >= 1000) {
@@ -1266,14 +1091,14 @@ class WeGistViewModel(
                     senderName = me.username,
                     senderAvatar = me.avatarResName,
                     content = note,
-                    type = "TEXT"
+                    type = ChatTypes.TEXT
                 )
                 repository.insertMessage(noteMsg)
             }
 
             awardCoins(30) // bonus reward for sharing with friends!
-            
-            // Trigger dynamic interactive response
+
+            // SIMULATED: scripted reply from the friend
             delay(1500)
             simulateShareReply(chatId, contentType, author)
         }
@@ -1301,11 +1126,16 @@ class WeGistViewModel(
                 senderName = name,
                 senderAvatar = "img_profile_me_1783282394572",
                 content = replyContent,
-                type = "TEXT"
+                type = ChatTypes.TEXT
             )
         )
     }
 
+    /**
+     * SIMULATED contact sync: really reads the device contact list (when the
+     * READ_CONTACTS permission is granted), but "discovered WeGist users" are
+     * hardcoded demo friends — there is no discovery backend yet.
+     */
     fun syncContacts() {
         viewModelScope.launch {
             isSyncingContacts.value = true
@@ -1319,6 +1149,7 @@ class WeGistViewModel(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
             val deviceContacts = mutableListOf<Pair<String, String>>()
+            var usedFallbackContacts = false
 
             if (hasPermission) {
                 try {
@@ -1351,8 +1182,9 @@ class WeGistViewModel(
                 }
             }
 
-            // Fallback simulated contacts for emulator, previews, and testing
+            // SIMULATED fallback contacts for emulator, previews, and testing
             if (deviceContacts.isEmpty()) {
+                usedFallbackContacts = true
                 deviceContacts.add("Charlie Gamer" to "+15551234567")
                 deviceContacts.add("Retro Queen" to "+15559876543")
                 deviceContacts.add("Shadow Hunter" to "+15555554444")
@@ -1360,7 +1192,7 @@ class WeGistViewModel(
                 deviceContacts.add("NiteHawk" to "+14155552671")
             }
 
-            // Identify existing WeGist users and sync them
+            // SIMULATED: these "discovered users" are demo friends, not real lookups
             val discoveredUsers = listOf(
                 Friend("charlie", "GamerCharlie", "img_profile_me_1783282394572", 84, 15, true, "online"),
                 Friend("spacequeen", "SpaceQueen", "img_profile_me_1783282394572", 15, 68, true, "in-game"),
@@ -1376,34 +1208,56 @@ class WeGistViewModel(
                 }
             }
 
-            contactsSyncStatus.value = "Synced ${deviceContacts.size} contacts! Discovered $count new gaming friends on WeGist."
+            contactsSyncStatus.value = if (usedFallbackContacts) {
+                "Demo mode: used sample contacts (no permission or empty list). Added $count sample gaming friends. Real discovery comes with the online backend."
+            } else {
+                "Scanned ${deviceContacts.size} device contacts. Friend discovery is simulated in this demo — added $count sample gamers."
+            }
             isSyncingContacts.value = false
             delay(3500)
             contactsSyncStatus.value = null
         }
     }
 
+    /**
+     * SIMULATED cloud sync: there is no cloud backend wired up yet. This only
+     * updates the local "last backup" timestamp and tells the user honestly
+     * whether Firebase is configured.
+     */
     fun syncWithFirebase() {
         viewModelScope.launch {
             isSyncingWithFirebase.value = true
-            firebaseSyncStatus.value = "Connecting to Firebase Realtime Database..."
-            delay(1200)
-            firebaseSyncStatus.value = "Uploading offline SQLite messages..."
+
+            val firebaseConfigured = try {
+                com.google.firebase.FirebaseApp.getApps(getApplication()).isNotEmpty()
+            } catch (e: Exception) {
+                false
+            }
+
+            firebaseSyncStatus.value = if (firebaseConfigured) {
+                "Connecting to Firebase..."
+            } else {
+                "No cloud backend configured — running in local demo mode."
+            }
             delay(1000)
-            firebaseSyncStatus.value = "Synchronizing user profile metadata..."
-            delay(800)
+            firebaseSyncStatus.value = "Saving local profile metadata..."
+            delay(700)
 
             val me = userStats.value
             repository.insertUserStats(me.copy(lastBackupTime = System.currentTimeMillis()))
 
-            firebaseSyncStatus.value = "Firebase sync complete! ✓ Local Room SQLite & Firebase are in perfect harmony."
+            firebaseSyncStatus.value = if (firebaseConfigured) {
+                "Local snapshot saved ✓ (demo: cloud upload is not implemented yet)"
+            } else {
+                "Local snapshot saved ✓ Your data stays on this device."
+            }
             isSyncingWithFirebase.value = false
             delay(3500)
             firebaseSyncStatus.value = null
         }
     }
 
-    // --- LFG LOBBIES MANAGEMENT ---
+    // --- LFG LOBBIES MANAGEMENT (SIMULATED: local list only) ---
 
     fun createLfgLobby(gameName: String, title: String, maxPlayers: Int) {
         val me = userStats.value.username
@@ -1424,8 +1278,8 @@ class WeGistViewModel(
                 sendMessage(
                     chatId = currentChatId,
                     content = lobbyMsg,
-                    type = "GAME_INVITE",
-                    gameType = "CUSTOM_LINK",
+                    type = ChatTypes.GAME_INVITE,
+                    gameType = GameTypes.CUSTOM_LINK,
                     gameData = "$gameName Group Lobby|https://lobby.wegist.com/${newLobby.id}|Click below to join my gaming group instantly! ⚔️"
                 )
             }
@@ -1445,699 +1299,5 @@ class WeGistViewModel(
                 lobby
             }
         }
-    }
-
-    // --- TURN-BASED MINI-GAMES PLAY LOGIC ---
-
-    fun playTriviaAnswer(messageId: Int, selectedOptionIdx: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val qIdx = message.id % 3
-            val (question, options, correctIdx) = when (qIdx) {
-                0 -> Triple(
-                    "Which video game is officially the best-selling of all time?",
-                    listOf("Tetris", "Grand Theft Auto V", "Minecraft"),
-                    2
-                )
-                1 -> Triple(
-                    "In what year was the original Nintendo Entertainment System (NES) released?",
-                    listOf("1983", "1985", "1989"),
-                    1
-                )
-                else -> Triple(
-                    "What is the name of the main protagonist in the Halo franchise?",
-                    listOf("Doomguy", "Master Chief", "Marcus Fenix"),
-                    1
-                )
-            }
-
-            val isCorrect = selectedOptionIdx == correctIdx
-            val chosenOptionText = options.getOrElse(selectedOptionIdx) { "Unknown" }
-            val correctOptionText = options.getOrElse(correctIdx) { "Unknown" }
-
-            val resultText = if (isCorrect) {
-                "Solved Trivia! Question: \"$question\"\nMy Answer: **$chosenOptionText** (CORRECT! 🎉 +50 🪙)"
-            } else {
-                "Failed Trivia! Question: \"$question\"\nMy Answer: **$chosenOptionText** (WRONG! Correct was $correctOptionText 🤖)"
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = "COMPLETED",
-                gameWinner = if (isCorrect) "me" else "opponent",
-                gameData = "$selectedOptionIdx,$correctIdx",
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-
-            if (isCorrect) {
-                awardCoins(50)
-            }
-        }
-    }
-
-    fun playChessMove(messageId: Int, fromIdx: Int, toIdx: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            val board = message.gameData?.split(",")?.toMutableList() ?: mutableListOf()
-            if (board.size != 16 || message.gameStatus == "COMPLETED") return@launch
-
-            val piece = board[fromIdx]
-            board[fromIdx] = "."
-            board[toIdx] = piece
-
-            val updatedBoardData = board.joinToString(",")
-            val updatedMsg = message.copy(
-                gameData = updatedBoardData,
-                gameStatus = "ACTIVE",
-                content = "I made a chess move! ${piece} from square $fromIdx to $toIdx. Your turn!"
-            )
-            repository.updateMessage(updatedMsg)
-
-            // Trigger AI response after delay
-            delay(1500)
-            triggerChessAIMove(updatedMsg, board)
-        }
-    }
-
-    private suspend fun triggerChessAIMove(message: ChatMessage, board: MutableList<String>) {
-        val blackPieces = listOf("♜", "♞", "♝", "♚")
-        val blackIndices = board.indices.filter { board[it] in blackPieces }
-        if (blackIndices.isNotEmpty()) {
-            val fromIdx = blackIndices.random()
-            val piece = board[fromIdx]
-            val emptyOrWhiteIndices = board.indices.filter { board[it] == "." || board[it] in listOf("♖", "♘", "♗", "♔") }
-            if (emptyOrWhiteIndices.isNotEmpty()) {
-                val toIdx = emptyOrWhiteIndices.random()
-                val captured = board[toIdx]
-                board[fromIdx] = "."
-                board[toIdx] = piece
-
-                val updatedBoardData = board.joinToString(",")
-                val text = if (captured != ".") {
-                    "Alice captured your ${captured} with ${piece} at $toIdx! ⚔️ Your turn!"
-                } else {
-                    "Alice moved her chess piece ${piece} to square $toIdx. Your turn!"
-                }
-
-                val updatedMsg = message.copy(
-                    gameData = updatedBoardData,
-                    content = text
-                )
-                repository.updateMessage(updatedMsg)
-            }
-        }
-    }
-
-    fun playConnectFourMove(messageId: Int, col: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            val board = message.gameData?.split(",")?.toMutableList() ?: MutableList(25) { "" }
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            // Find lowest empty slot in this column (row goes from 4 down to 0)
-            var targetRow = -1
-            for (r in 4 downTo 0) {
-                val idx = r * 5 + col
-                if (board[idx].isEmpty()) {
-                    targetRow = r
-                    break
-                }
-            }
-
-            if (targetRow != -1) {
-                val targetIdx = targetRow * 5 + col
-                board[targetIdx] = "R" // Red (Me)
-                val updatedBoardData = board.joinToString(",")
-
-                val isUserWin = checkConnectFourWin(board, "R")
-                val isDraw = !board.contains("") && !isUserWin
-
-                val status = if (isUserWin || isDraw) "COMPLETED" else "ACTIVE"
-                val winner = if (isUserWin) "me" else if (isDraw) "DRAW" else null
-
-                val updatedMsg = message.copy(
-                    gameStatus = status,
-                    gameWinner = winner,
-                    gameData = updatedBoardData,
-                    content = if (isUserWin) "I connected four in a row! 🎉" else if (isDraw) "The Connect Four game is a draw!" else "I dropped a chip in col ${col + 1}. Your turn!"
-                )
-                repository.updateMessage(updatedMsg)
-
-                if (isUserWin) {
-                    awardCoins(120)
-                    incrementWins()
-                }
-
-                if (status == "ACTIVE") {
-                    delay(1500)
-                    triggerConnectFourAIMove(updatedMsg, board)
-                }
-            }
-        }
-    }
-
-    private suspend fun triggerConnectFourAIMove(message: ChatMessage, board: MutableList<String>) {
-        val availableCols = (0..4).filter { col -> (0..4).any { r -> board[r * 5 + col].isEmpty() } }
-        if (availableCols.isNotEmpty()) {
-            val aiCol = availableCols.random()
-            var targetRow = -1
-            for (r in 4 downTo 0) {
-                val idx = r * 5 + aiCol
-                if (board[idx].isEmpty()) {
-                    targetRow = r
-                    break
-                }
-            }
-            if (targetRow != -1) {
-                val targetIdx = targetRow * 5 + aiCol
-                board[targetIdx] = "Y" // Yellow (AI)
-                val updatedBoardData = board.joinToString(",")
-
-                val isAIWin = checkConnectFourWin(board, "Y")
-                val isDraw = !board.contains("") && !isAIWin
-
-                val status = if (isAIWin || isDraw) "COMPLETED" else "ACTIVE"
-                val winner = if (isAIWin) "opponent" else if (isDraw) "DRAW" else null
-
-                val updatedMsg = message.copy(
-                    gameStatus = status,
-                    gameWinner = winner,
-                    gameData = updatedBoardData,
-                    content = if (isAIWin) "Alice connected four in a row! 🤖" else if (isDraw) "The Connect Four game is a draw!" else "I made my move! Column ${aiCol + 1}."
-                )
-                repository.updateMessage(updatedMsg)
-            }
-        }
-    }
-
-    private fun checkConnectFourWin(board: List<String>, player: String): Boolean {
-        // Horizontal
-        for (row in 0..4) {
-            for (col in 0..1) {
-                val base = row * 5 + col
-                if (board[base] == player && board[base+1] == player && board[base+2] == player && board[base+3] == player) return true
-            }
-        }
-        // Vertical
-        for (col in 0..4) {
-            for (row in 0..1) {
-                val base = row * 5 + col
-                if (board[base] == player && board[base+5] == player && board[base+10] == player && board[base+15] == player) return true
-            }
-        }
-        // Diagonal down-right
-        for (row in 0..1) {
-            for (col in 0..1) {
-                val base = row * 5 + col
-                if (board[base] == player && board[base+6] == player && board[base+12] == player && board[base+18] == player) return true
-            }
-        }
-        // Diagonal down-left
-        for (row in 0..1) {
-            for (col in 2..4) {
-                val base = row * 5 + col
-                if (board[base] == player && board[base+4] == player && board[base+8] == player && board[base+12] == player) return true
-            }
-        }
-        return false
-    }
-
-    fun playBattleshipMove(messageId: Int, cellIdx: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
-            if (parts.size < 4) return@launch
-
-            val playerShots = parts[0].split(",").toMutableList()
-            val aiShips = parts[1].split(",")
-            val aiShots = parts[2].split(",").toMutableList()
-            val playerShips = parts[3].split(",")
-
-            if (playerShots[cellIdx] != ".") return@launch // Already shot here
-
-            val isHit = aiShips.contains(cellIdx.toString())
-            playerShots[cellIdx] = if (isHit) "H" else "M"
-
-            val totalPlayerHits = playerShots.count { it == "H" }
-            val isUserWin = totalPlayerHits >= aiShips.size
-
-            parts[0] = playerShots.joinToString(",")
-
-            val status = if (isUserWin) "COMPLETED" else "ACTIVE"
-            val winner = if (isUserWin) "me" else null
-
-            val resultText = if (isUserWin) {
-                "I sank all AI ships and won the Battleship battle! 🎉 (+150 🪙)"
-            } else if (isHit) {
-                "Hit! I found a ship at sector $cellIdx! 💥 AI's turn..."
-            } else {
-                "Miss at sector $cellIdx. 💨 AI's turn..."
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = status,
-                gameWinner = winner,
-                gameData = parts.joinToString("|"),
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-
-            if (isUserWin) {
-                awardCoins(150)
-                incrementWins()
-            }
-
-            if (status == "ACTIVE") {
-                delay(1500)
-                triggerBattleshipAIMove(updatedMsg, parts)
-            }
-        }
-    }
-
-    private suspend fun triggerBattleshipAIMove(message: ChatMessage, parts: MutableList<String>) {
-        val aiShots = parts[2].split(",").toMutableList()
-        val playerShips = parts[3].split(",")
-
-        val availableTargetIndices = aiShots.indices.filter { aiShots[it] == "." }
-        if (availableTargetIndices.isNotEmpty()) {
-            val target = availableTargetIndices.random()
-            val isHit = playerShips.contains(target.toString())
-            aiShots[target] = if (isHit) "H" else "M"
-
-            val totalAiHits = aiShots.count { it == "H" }
-            val isAiWin = totalAiHits >= playerShips.size
-
-            parts[2] = aiShots.joinToString(",")
-
-            val status = if (isAiWin) "COMPLETED" else "ACTIVE"
-            val winner = if (isAiWin) "opponent" else null
-
-            val resultText = if (isAiWin) {
-                "Alice sank all your ships! 🤖 You lost!"
-            } else if (isHit) {
-                "Alice launched an attack and HIT your ship at sector $target! 🔥 Your turn!"
-            } else {
-                "Alice missed her attack at sector $target. 💨 Your turn!"
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = status,
-                gameWinner = winner,
-                gameData = parts.joinToString("|"),
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-        }
-    }
-
-    fun playDiceDuelMove(messageId: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val dataParts = message.gameData?.split(",")?.map { it.toIntOrNull() ?: 0 } ?: listOf(0, 0, 0, 0, 0)
-            var (userScore, oppScore, round, lastUser, lastOpp) = dataParts
-
-            val userRoll = (1..6).random() + (1..6).random()
-            userScore += userRoll
-            round += 1
-
-            // AI rolls right after
-            val oppRoll = (1..6).random() + (1..6).random()
-            oppScore += oppRoll
-
-            val isLastRound = round >= 3
-            val status = if (isLastRound) "COMPLETED" else "ACTIVE"
-            val winner = if (isLastRound) {
-                if (userScore > oppScore) "me" else if (oppScore > userScore) "opponent" else "DRAW"
-            } else null
-
-            val resultText = if (isLastRound) {
-                if (userScore > oppScore) {
-                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. I WON! 🏆"
-                } else if (oppScore > userScore) {
-                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. Alice won! 🤖"
-                } else {
-                    "Dice Duel over! My Roll: $userRoll, Alice's Roll: $oppRoll.\nFinal Score: **$userScore - $oppScore**. It's a DRAW! 🤝"
-                }
-            } else {
-                "Round $round: I rolled $userRoll. Alice rolled $oppRoll.\nRunning Score: $userScore - $oppScore! Your turn to roll again!"
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = status,
-                gameWinner = winner,
-                gameData = "$userScore,$oppScore,$round,$userRoll,$oppRoll",
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-
-            if (isLastRound && winner == "me") {
-                awardCoins(100)
-                incrementWins()
-            }
-        }
-    }
-
-    fun playMemoryMatchMove(messageId: Int, cardIdx: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
-            if (parts.size < 5) return@launch
-
-            val cardsLayout = parts[0].split(",")
-            val matchedArray = parts[1].split(",").toMutableList()
-            var firstSel = parts[2].toIntOrNull() ?: -1
-            var playerScore = parts[3].toIntOrNull() ?: 0
-            var oppScore = parts[4].toIntOrNull() ?: 0
-
-            if (matchedArray[cardIdx] == "M" || cardIdx == firstSel) return@launch
-
-            if (firstSel == -1) {
-                // First card selected
-                firstSel = cardIdx
-                parts[2] = firstSel.toString()
-
-                val updatedMsg = message.copy(
-                    gameData = parts.joinToString("|"),
-                    content = "Flipped first card: ${cardsLayout[cardIdx]}! Flip second..."
-                )
-                repository.updateMessage(updatedMsg)
-            } else {
-                // Second card selected
-                val firstCardVal = cardsLayout[firstSel]
-                val secondCardVal = cardsLayout[cardIdx]
-
-                if (firstCardVal == secondCardVal) {
-                    // Match!
-                    matchedArray[firstSel] = "M"
-                    matchedArray[cardIdx] = "M"
-                    playerScore += 1
-                    firstSel = -1
-
-                    val totalMatched = matchedArray.count { it == "M" }
-                    val isGameOver = totalMatched >= 16
-                    val status = if (isGameOver) "COMPLETED" else "ACTIVE"
-                    val winner = if (isGameOver) {
-                        if (playerScore > oppScore) "me" else if (oppScore > playerScore) "opponent" else "DRAW"
-                    } else null
-
-                    parts[1] = matchedArray.joinToString(",")
-                    parts[2] = "-1"
-                    parts[3] = playerScore.toString()
-
-                    val resultText = if (isGameOver) {
-                        "Memory Card match game completed! Matches Score: **$playerScore - $oppScore**. ${if (playerScore > oppScore) "I won! 🎉" else "Alice won! 🤖"}"
-                    } else {
-                        "Matched! Found a pair of $firstCardVal! Your score: $playerScore. Keep matching! 🧠"
-                    }
-
-                    val updatedMsg = message.copy(
-                        gameStatus = status,
-                        gameWinner = winner,
-                        gameData = parts.joinToString("|"),
-                        content = resultText
-                    )
-                    repository.updateMessage(updatedMsg)
-
-                    if (isGameOver && winner == "me") {
-                        awardCoins(120)
-                        incrementWins()
-                    }
-                } else {
-                    // Mismatch!
-                    val wrongFirst = firstSel
-                    val wrongSecond = cardIdx
-
-                    // Display mismatch briefly then let AI play
-                    parts[2] = "-1" // Reset selection
-
-                    val updatedMsg = message.copy(
-                        gameData = parts.joinToString("|"),
-                        content = "Oops! ${cardsLayout[wrongFirst]} doesn't match ${cardsLayout[wrongSecond]}. AI's turn!"
-                    )
-                    repository.updateMessage(updatedMsg)
-
-                    // Delay and AI turn
-                    delay(1500)
-                    triggerMemoryAIMove(updatedMsg, parts)
-                }
-            }
-        }
-    }
-
-    private suspend fun triggerMemoryAIMove(message: ChatMessage, parts: MutableList<String>) {
-        val cardsLayout = parts[0].split(",")
-        val matchedArray = parts[1].split(",").toMutableList()
-        var oppScore = parts[4].toIntOrNull() ?: 0
-        val playerScore = parts[3].toIntOrNull() ?: 0
-
-        val unmatchedIndices = matchedArray.indices.filter { matchedArray[it] == "." }
-        if (unmatchedIndices.size >= 2) {
-            // AI is smart: 40% chance of finding a pair, otherwise random selection
-            var firstIdx = -1
-            var secondIdx = -1
-
-            if (Math.random() < 0.4) {
-                // Find a match in available cards
-                outer@ for (i in unmatchedIndices) {
-                    for (j in unmatchedIndices) {
-                        if (i != j && cardsLayout[i] == cardsLayout[j]) {
-                            firstIdx = i
-                            secondIdx = j
-                            break@outer
-                        }
-                    }
-                }
-            }
-
-            if (firstIdx == -1) {
-                // Pick random
-                val shuffled = unmatchedIndices.shuffled()
-                firstIdx = shuffled[0]
-                secondIdx = shuffled[1]
-            }
-
-            val firstCardVal = cardsLayout[firstIdx]
-            val secondCardVal = cardsLayout[secondIdx]
-
-            val text: String
-            if (firstCardVal == secondCardVal) {
-                matchedArray[firstIdx] = "M"
-                matchedArray[secondIdx] = "M"
-                oppScore += 1
-                parts[1] = matchedArray.joinToString(",")
-                parts[4] = oppScore.toString()
-
-                val totalMatched = matchedArray.count { it == "M" }
-                val isGameOver = totalMatched >= 16
-                val status = if (isGameOver) "COMPLETED" else "ACTIVE"
-                val winner = if (isGameOver) {
-                    if (playerScore > oppScore) "me" else if (oppScore > playerScore) "opponent" else "DRAW"
-                } else null
-
-                text = if (isGameOver) {
-                    "Alice matched $firstCardVal! Game completed. Matches: **$playerScore - $oppScore**. ${if (playerScore > oppScore) "I won! 🎉" else "Alice won! 🤖"}"
-                } else {
-                    "Alice matched $firstCardVal and $secondCardVal! Score: $playerScore - $oppScore. Your turn!"
-                }
-
-                val updatedMsg = message.copy(
-                    gameStatus = status,
-                    gameWinner = winner,
-                    gameData = parts.joinToString("|"),
-                    content = text
-                )
-                repository.updateMessage(updatedMsg)
-            } else {
-                text = "Alice tried flipping cards at $firstIdx and $secondIdx but they didn't match. Your turn!"
-                val updatedMsg = message.copy(
-                    gameData = parts.joinToString("|"),
-                    content = text
-                )
-                repository.updateMessage(updatedMsg)
-            }
-        }
-    }
-
-    fun playNumberGuesserMove(messageId: Int, guess: Int) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val parts = message.gameData?.split(",") ?: return@launch
-            val secretVal = parts.getOrNull(0)?.toIntOrNull() ?: 25
-            var attempts = parts.getOrNull(1)?.toIntOrNull() ?: 0
-            val maxAttempts = parts.getOrNull(2)?.toIntOrNull() ?: 6
-
-            attempts += 1
-            val isCorrect = guess == secretVal
-            val isOutOfAttempts = attempts >= maxAttempts
-
-            val feedback = when {
-                isCorrect -> "Correct! You guessed it in $attempts attempts!"
-                guess < secretVal -> "Guess $guess is Too Low! 📉"
-                else -> "Guess $guess is Too High! 📈"
-            }
-
-            val status = if (isCorrect || isOutOfAttempts) "COMPLETED" else "ACTIVE"
-            val winner = if (isCorrect) "me" else if (isOutOfAttempts) "opponent" else null
-
-            val resultText = if (isCorrect) {
-                "I solved the Guess the Number! The secret was **$secretVal**! 🎉 (+100 🪙)"
-            } else if (isOutOfAttempts) {
-                "Whoops, out of attempts! The correct number was **$secretVal**. Alice wins! 🤖"
-            } else {
-                "I guessed $guess. Feedback: $feedback. ${maxAttempts - attempts} attempts left!"
-            }
-
-            val updatedMsg = message.copy(
-                gameStatus = status,
-                gameWinner = winner,
-                gameData = "$secretVal,$attempts,$maxAttempts,$feedback",
-                content = resultText
-            )
-            repository.updateMessage(updatedMsg)
-
-            if (isCorrect) {
-                awardCoins(100)
-                incrementWins()
-            }
-        }
-    }
-
-    fun playBlackjackMove(messageId: Int, action: String) {
-        viewModelScope.launch {
-            val messagesList = allMessages.value
-            val message = messagesList.find { it.id == messageId } ?: return@launch
-            if (message.gameStatus == "COMPLETED") return@launch
-
-            val parts = message.gameData?.split("|")?.toMutableList() ?: return@launch
-            val playerHand = parts[0].split(",").map { it.toIntOrNull() ?: 0 }.toMutableList()
-            val oppHand = parts[1].split(",").map { it.toIntOrNull() ?: 0 }.toMutableList()
-
-            if (action == "HIT") {
-                val newCard = (1..11).random()
-                playerHand.add(newCard)
-                val playerScore = calculateBlackjackScore(playerHand)
-
-                parts[0] = playerHand.joinToString(",")
-
-                if (playerScore > 21) {
-                    // Bust!
-                    val updatedMsg = message.copy(
-                        gameStatus = "COMPLETED",
-                        gameWinner = "opponent",
-                        gameData = parts.joinToString("|"),
-                        content = "Bust! Drew a $newCard, Total Score is $playerScore. Alice wins! 🤖"
-                    )
-                    repository.updateMessage(updatedMsg)
-                } else {
-                    val updatedMsg = message.copy(
-                        gameData = parts.joinToString("|"),
-                        content = "You drew a $newCard. Your Hand: ${playerHand.joinToString(", ")} (Score: $playerScore). Hit or Stand?"
-                    )
-                    repository.updateMessage(updatedMsg)
-                }
-            } else if (action == "STAND") {
-                // Dealer/Opponent hits until 17+
-                var oppScore = calculateBlackjackScore(oppHand)
-                while (oppScore < 17) {
-                    val newCard = (1..11).random()
-                    oppHand.add(newCard)
-                    oppScore = calculateBlackjackScore(oppHand)
-                }
-
-                parts[1] = oppHand.joinToString(",")
-                val playerScore = calculateBlackjackScore(playerHand)
-
-                val winner = when {
-                    oppScore > 21 -> "me"
-                    playerScore > oppScore -> "me"
-                    oppScore > playerScore -> "opponent"
-                    else -> "DRAW"
-                }
-
-                val status = "COMPLETED"
-                val resultText = when (winner) {
-                    "me" -> "You Win! Your score: $playerScore, Alice's score: $oppScore ${if (oppScore > 21) "(Busted)" else ""}. 🎉 (+120 🪙)"
-                    "opponent" -> "Alice wins! Your score: $playerScore, Alice's score: $oppScore. 🤖"
-                    else -> "Dealer/Player Push! Both got $playerScore. 🤝"
-                }
-
-                val updatedMsg = message.copy(
-                    gameStatus = status,
-                    gameWinner = winner,
-                    gameData = parts.joinToString("|"),
-                    content = resultText
-                )
-                repository.updateMessage(updatedMsg)
-
-                if (winner == "me") {
-                    awardCoins(120)
-                    incrementWins()
-                }
-            }
-        }
-    }
-
-    private fun calculateBlackjackScore(hand: List<Int>): Int {
-        var score = hand.sum()
-        var aces = hand.count { it == 11 }
-        while (score > 21 && aces > 0) {
-            score -= 10
-            aces -= 1
-        }
-        return score
-    }
-}
-
-// Data definitions for Live Interaction UI
-data class LfgLobby(
-    val id: String = UUID.randomUUID().toString(),
-    val gameName: String,
-    val title: String,
-    val hostName: String,
-    val maxPlayers: Int = 4,
-    val joinedPlayers: List<String> = listOf(),
-    val voiceActive: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
-)
-
-data class StreamComment(
-    val senderName: String,
-    val content: String,
-    val badge: String
-)
-
-data class FloatingEmoji(
-    val id: String,
-    val emoji: String,
-    val xOffset: Int
-)
-
-class WeGistViewModelFactory(
-    private val application: Application,
-    private val repository: Repository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(WeGistViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return WeGistViewModel(application, repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

@@ -353,7 +353,7 @@ fun ProfileSettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "• End-to-end encrypted chats under Signal Protocol\n• Interactive mini-games & live streams\n• 15 GB of cloud chat/backup storage",
+                            text = "• Local-first chats — your data stays on your device\n• Interactive mini-games & live streams\n• Expanded storage for local chat history & backups",
                             color = TextGray,
                             fontSize = 11.sp,
                             lineHeight = 16.sp
@@ -1417,10 +1417,10 @@ fun ProfileSettingsScreen(
                                             backupStatusText = "Compressing indices & logs..."
                                             backupProgress = 0.4f
                                             delay(600)
-                                            backupStatusText = "Uploading snapshot to cloud..."
+                                            backupStatusText = "Saving local snapshot (demo — no cloud)..."
                                             backupProgress = 0.7f
                                             delay(700)
-                                            backupStatusText = "Backup verified & encrypted."
+                                            backupStatusText = "Local snapshot saved ✓"
                                             backupProgress = 1.0f
                                             delay(400)
                                             isBackingUp = false
@@ -1555,7 +1555,7 @@ fun ProfileSettingsScreen(
                         ) {
                             Column {
                                 Text("Export Chat History & Backup 📦", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("Download encrypted local Room database JSON file.", color = TextGray, fontSize = 11.sp)
+                                Text("Export your local Room database as a JSON file.", color = TextGray, fontSize = 11.sp)
                             }
                             Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Export", tint = NeonMint)
                         }
@@ -1590,7 +1590,7 @@ fun ProfileSettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("What's New in v1.0.4 🚀", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("What's New 🚀", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("View latest feature additions and performance updates.", color = TextGray, fontSize = 11.sp)
                             }
                             Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Changelog", tint = NeonMint)
@@ -1651,9 +1651,9 @@ fun ProfileSettingsScreen(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("WeGist v1.0.4 (Build 104) • Play Store Verified Edition", color = TextGray, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text("WeGist v1.0 (Build 1) • Local-first demo build", color = TextGray, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text("🔒 Encrypted with Firebase Auth & Play Integrity API", color = NeonMint.copy(alpha = 0.7f), fontSize = 10.sp)
+                    Text("📴 Your data stays on this device — no cloud, no telemetry", color = NeonMint.copy(alpha = 0.7f), fontSize = 10.sp)
                 }
             }
         }
@@ -1727,7 +1727,7 @@ fun ProfileSettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Storage, contentDescription = null, tint = NeonMint, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Format: Encrypted Room Database JSON", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Format: Room Database JSON (local export)", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 },
@@ -1795,13 +1795,13 @@ fun ProfileSettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = CyberPink, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("What's New in v1.0.4", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("What's New", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("✨ Play Store Release Candidate 1.0.4 Highlights:", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("• Encrypted Phone & OTP Authentication", color = TextGray, fontSize = 12.sp)
+                        Text("✨ Demo Build Highlights:", color = NeonMint, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("• Phone & OTP sign-in (Firebase, with local demo fallback)", color = TextGray, fontSize = 12.sp)
                         Text("• Expanded Mini-Games (Connect Four, Chess, Tic-Tac-Toe)", color = TextGray, fontSize = 12.sp)
                         Text("• Instant Voice Notes & Media attachments", color = TextGray, fontSize = 12.sp)
                         Text("• Offline Room DB sync and high-framerate rendering", color = TextGray, fontSize = 12.sp)
@@ -2222,105 +2222,5 @@ fun ProfileSettingsScreen(
                 shape = RoundedCornerShape(16.dp)
             )
         }
-    }
-}
-
-@Composable
-fun PrivacyOptionDialog(
-    title: String,
-    currentVal: String,
-    options: List<String>,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                options.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (currentVal == option) Color(0xFF142C26) else Color.Transparent,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable {
-                                onSelect(option)
-                                onDismiss()
-                            }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(option, color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        if (currentVal == option) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = NeonMint, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Dismiss", color = TextGray)
-            }
-        },
-        containerColor = CyberCard,
-        shape = RoundedCornerShape(16.dp)
-    )
-}
-
-@Composable
-fun StatSmallCard(
-    label: String,
-    valText: String,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CyberCard),
-        border = BorderStroke(1.dp, CyberBorder),
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(label, color = TextGray, fontSize = 11.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(valText, color = tint, fontWeight = FontWeight.Black, fontSize = 16.sp)
-        }
-    }
-}
-
-@Composable
-fun PrivacyToggleRow(
-    title: String,
-    desc: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    tag: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(desc, color = TextGray, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = NeonMint,
-                uncheckedThumbColor = TextGray,
-                uncheckedTrackColor = CyberBorder
-            ),
-            modifier = Modifier.testTag(tag)
-        )
     }
 }

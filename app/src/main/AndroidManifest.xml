@@ -6,10 +6,13 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!--
+      allowBackup is deliberately disabled: WeGist is a local-first demo and the
+      in-app privacy copy promises that data stays on the device. Auto-backup to
+      a user's Google account would contradict that promise.
+    -->
     <application
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
