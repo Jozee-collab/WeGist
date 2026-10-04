@@ -9,7 +9,7 @@ jobs:
   build-and-test:
     name: Build & Unit Test
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
     permissions:
       contents: read
       issues: write
@@ -32,7 +32,9 @@ jobs:
       - name: Unit tests (Robolectric + pure JVM game-engine tests)
         run: |
           set -o pipefail
-          ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee unit-test.log
+          # `timeout` guards against a hanging test: exit 124 fails the step and the
+          # "started" test-log events show exactly which test hung.
+          timeout 1500 ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee unit-test.log
 
       - name: Build debug APK
         run: |

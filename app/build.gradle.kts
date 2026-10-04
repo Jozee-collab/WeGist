@@ -73,7 +73,7 @@ android {
 tasks.withType<Test> {
   maxHeapSize = "2048m"
   testLogging {
-    events("passed", "skipped", "failed")
+    events("started", "passed", "skipped", "failed")
     showStandardStreams = true
   }
 }

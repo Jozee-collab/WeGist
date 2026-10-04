@@ -6,8 +6,14 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.*
 import com.example.ui.viewmodel.WeGistViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,6 +23,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/**
+ * NOTE: Dispatchers.Main is replaced with an UnconfinedTestDispatcher so that
+ * viewModelScope coroutines (and their Room resumptions) never depend on the
+ * paused Robolectric main looper — otherwise runBlocking-based waits deadlock.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class ExampleRobolectricTest {
@@ -28,6 +40,7 @@ class ExampleRobolectricTest {
 
   @Before
   fun setUp() {
+    Dispatchers.setMain(UnconfinedTestDispatcher())
     context = ApplicationProvider.getApplicationContext<Context>()
     database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
       .allowMainThreadQueries()
@@ -44,6 +57,12 @@ class ExampleRobolectricTest {
     )
     val app = context.applicationContext as Application
     viewModel = WeGistViewModel(app, repository)
+  }
+
+  @After
+  fun tearDown() {
+    database.close()
+    Dispatchers.resetMain()
   }
 
   @Test
