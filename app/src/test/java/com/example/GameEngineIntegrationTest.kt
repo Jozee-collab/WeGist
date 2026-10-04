@@ -84,14 +84,20 @@ class GameEngineIntegrationTest {
         return id.toInt()
     }
 
+    /** Waits until the given message is visible in the ViewModel's StateFlow cache. */
+    private suspend fun awaitMessageVisible(id: Int) {
+        viewModel.allMessages.first { list -> list.any { it.id == id } }
+    }
+
     @Test
     fun `tic tac toe move persists through viewmodel into room`() = runBlocking {
         // Wait for the seeder to finish so allMessages is populated
         viewModel.allMessages.first { it.isNotEmpty() }
 
         val messageId = insertTicTacToeGame()
-        // Activate the WhileSubscribed flow so the ViewModel sees the message
-        viewModel.allMessages.first { it.isNotEmpty() }
+        // Ensure the inserted message has propagated into the StateFlow cache
+        // BEFORE playing, otherwise allMessages.value may not contain it yet.
+        awaitMessageVisible(messageId)
 
         viewModel.playTicTacToeMove(messageId, 4)
 
@@ -126,7 +132,7 @@ class GameEngineIntegrationTest {
 
         val statsBefore = viewModel.userStats.first { it.username == "WeGamer_Me" }.coins
 
-        viewModel.allMessages.first { it.isNotEmpty() }
+        awaitMessageVisible(id)
         viewModel.playTicTacToeMove(id, 6)
 
         val updated = viewModel.allMessages.first { list ->
@@ -158,7 +164,7 @@ class GameEngineIntegrationTest {
             )
         ).toInt()
 
-        viewModel.allMessages.first { it.isNotEmpty() }
+        awaitMessageVisible(id)
         viewModel.playRockPaperScissors(id, "ROCK")
 
         val updated = viewModel.allMessages.first { list ->
