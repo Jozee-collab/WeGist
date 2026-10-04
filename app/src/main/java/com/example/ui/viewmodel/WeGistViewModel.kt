@@ -415,8 +415,7 @@ class WeGistViewModel(
             repository.updateMessage(updatedMsg)
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(100)
-                incrementWins()
+                awardGameVictory(100)
             }
 
             if (update.gameStatus == GameStatuses.ACTIVE) {
@@ -433,8 +432,7 @@ class WeGistViewModel(
             repository.updateMessage(applyGameUpdate(message, update))
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(80)
-                incrementWins()
+                awardGameVictory(80)
             }
         }
     }
@@ -473,8 +471,7 @@ class WeGistViewModel(
             repository.updateMessage(updatedMsg)
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(120)
-                incrementWins()
+                awardGameVictory(120)
             }
 
             if (update.gameStatus == GameStatuses.ACTIVE) {
@@ -492,8 +489,7 @@ class WeGistViewModel(
             repository.updateMessage(updatedMsg)
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(150)
-                incrementWins()
+                awardGameVictory(150)
             }
 
             if (update.gameStatus == GameStatuses.ACTIVE) {
@@ -510,8 +506,7 @@ class WeGistViewModel(
             repository.updateMessage(applyGameUpdate(message, update))
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(100)
-                incrementWins()
+                awardGameVictory(100)
             }
         }
     }
@@ -524,8 +519,7 @@ class WeGistViewModel(
             repository.updateMessage(updatedMsg)
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(120)
-                incrementWins()
+                awardGameVictory(120)
             }
 
             if (update.needsAiFollowUp) {
@@ -542,8 +536,7 @@ class WeGistViewModel(
             repository.updateMessage(applyGameUpdate(message, update))
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(100)
-                incrementWins()
+                awardGameVictory(100)
             }
         }
     }
@@ -555,8 +548,7 @@ class WeGistViewModel(
             repository.updateMessage(applyGameUpdate(message, update))
 
             if (update.gameWinner == Winners.ME) {
-                awardCoins(120)
-                incrementWins()
+                awardGameVictory(120)
             }
         }
     }
@@ -980,12 +972,18 @@ class WeGistViewModel(
         }
     }
 
-    private suspend fun incrementWins() {
-        val me = userStats.value
+    /**
+     * Awards a game victory atomically: one fresh read + one write covering
+     * coins AND wins. (Previously awardCoins() + incrementWins() raced with
+     * stale reads and one of the two rewards was silently lost.)
+     */
+    private suspend fun awardGameVictory(coinReward: Int) {
+        val current = repository.userStats.first() ?: UserStats()
         repository.insertUserStats(
-            me.copy(
-                wins = me.wins + 1,
-                globalRank = maxOf(1, me.globalRank - 3) // rank gets better!
+            current.copy(
+                coins = current.coins + coinReward,
+                wins = current.wins + 1,
+                globalRank = maxOf(1, current.globalRank - 3) // rank gets better!
             )
         )
     }

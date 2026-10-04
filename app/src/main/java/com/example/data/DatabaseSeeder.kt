@@ -13,8 +13,12 @@ object DatabaseSeeder {
     suspend fun seedIfEmpty(repository: Repository) {
         repository.clearNonUserStreams()
 
-        // Seed UserStats
-        repository.insertUserStats(UserStats())
+        // Seed UserStats ONLY if missing. (Previously this inserted
+        // unconditionally, which silently reset the user's coins / wins /
+        // theme settings on every app restart.)
+        if (repository.userStats.first() == null) {
+            repository.insertUserStats(UserStats())
+        }
 
         // Seed Live Streams if empty
         val currentStreams = repository.activeStreams.first()
