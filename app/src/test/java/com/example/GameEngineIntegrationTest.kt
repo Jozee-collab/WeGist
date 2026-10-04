@@ -102,7 +102,11 @@ class GameEngineIntegrationTest {
         viewModel.playTicTacToeMove(messageId, 4)
 
         val updated = viewModel.allMessages.first { list ->
-            list.any { it.id == messageId && it.gameData != null && it.gameData.startsWith("X") }
+            list.any {
+                it.id == messageId &&
+                    it.gameStatus == "ACTIVE" &&
+                    it.gameData?.split(",")?.getOrNull(4) == "X"
+            }
         }.first { it.id == messageId }
 
         assertEquals("ACTIVE", updated.gameStatus)
