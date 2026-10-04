@@ -10,6 +10,9 @@ jobs:
     name: Build & Unit Test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -23,19 +26,78 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      # NOTE: full logs are piped to files; on failure the log tail is surfaced
+      # via ::error:: annotations (and a best-effort GitHub issue) because raw
+      # CI logs are not always reachable from agent sandboxes.
       - name: Unit tests (Robolectric + pure JVM game-engine tests)
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee unit-test.log
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee debug-build.log
 
       - name: Build release APK (R8, unsigned)
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleRelease --stacktrace 2>&1 | tee release-build.log
+
+      - name: Surface failure details (annotations + issue)
+        if: failure()
+        run: |
+          python3 - << 'PYEOF'
+          import glob, os
+
+          logs = []
+          for name in ["unit-test.log", "debug-build.log", "release-build.log"]:
+              if os.path.exists(name):
+                  logs.append((name, open(name, errors="replace").read()))
+
+          interesting = []
+          for name, text in logs:
+              lines = text.splitlines()
+              keep = set()
+              for i, ln in enumerate(lines):
+                  if any(t in ln for t in ("FAILED", "e: ", "error:", "error:", "Exception", "Caused by", "What went wrong", "BUILD")):
+                      for j in range(max(0, i - 2), min(len(lines), i + 6)):
+                          keep.add(j)
+              excerpt = [lines[i] for i in sorted(keep)]
+              if excerpt:
+                  interesting.append(f"===== {name} (matched lines) =====\n" + "\n".join(excerpt))
+              tail = "\n".join(lines[-150:])
+              interesting.append(f"===== {name} (tail 150) =====\n{tail}")
+
+          full = "\n\n".join(interesting)
+
+          # Emit up to 9 ::error:: annotations (~1000 chars each) so the failure
+          # is readable from the Checks API even without log access.
+          chunks = [full[i:i+1000] for i in range(0, min(len(full), 9000), 1000)]
+          for i, c in enumerate(chunks):
+              safe = c.replace("%", "%25").replace("\r", " ").replace("\n", "%0A").replace(":", "%3A")
+              print(f"::error::[CI-FAIL {i+1}/{len(chunks)}]{safe}")
+
+          with open("failure-body.md", "w") as f:
+              f.write(f"CI failure on `{os.environ.get('GITHUB_SHA', '?')[:8]}` (run {os.environ.get('GITHUB_RUN_NUMBER', '?')}):\n\n```\n{full[:60000]}\n```\n")
+          PYEOF
+          # Best-effort issue creation (needs issues:write on GITHUB_TOKEN)
+          curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/jomatechinc/WeGist/issues \
+            -d "{\"title\":\"CI failure: run $GITHUB_RUN_NUMBER\",\"body\":$(python3 -c 'import json; print(json.dumps(open("failure-body.md").read()))')}" || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v5
         with:
           name: test-reports
-          path: app/build/reports/tests/
+          path: |
+            app/build/reports/tests/
+            unit-test.log
+            debug-build.log
+            release-build.log
           if-no-files-found: ignore
