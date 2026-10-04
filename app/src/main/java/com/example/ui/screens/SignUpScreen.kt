@@ -1246,16 +1246,3 @@ fun SignUpScreen(
         )
     }
 }
-
-// Inner helper to handle verification code simulation trigger
-private fun SignUpScreen_verifyOtpCode(
-    otpDigits: String,
-    onSuccess: () -> Unit,
-    onFailure: (String) -> Unit
-) {
-    if (otpDigits.length < 6) {
-        onFailure("Enter all 6 OTP digits")
-    } else {
-        onSuccess()
-    }
-}
