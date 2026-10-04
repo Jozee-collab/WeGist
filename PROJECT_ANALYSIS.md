@@ -170,6 +170,24 @@ All work on branch `arena/01a10648-wegist`. Verified by GitHub Actions CI
 - **Repo hygiene:** README (setup, architecture, honest limitations, roadmap), CI workflow, wrapper, `.gitignore` hardened (`*.jks`, `*.keystore`, `app/google-services.json`); `Greeting` moved out of production code into the test source set.
 - **Notifications:** proper monochrome `ic_notification` status-bar icon (was the full-color launcher icon) + runtime `POST_NOTIFICATIONS` request in `MainActivity` + permission guard in `NotificationHelper`.
 
+### Bonus: two real production bugs found & fixed while verifying in CI
+
+1. **Profile reset on every app start** — the seeder unconditionally `REPLACE`d the
+   `UserStats` row on every ViewModel init, wiping coins/wins/level/theme on each launch.
+   Now conditional (`insert` only when absent).
+2. **Game-win rewards silently lost** — `awardCoins(N)` + `incrementWins()` ran as two
+   coroutines that both read a stale `userStats` snapshot, so one write clobbered the other
+   (coins usually lost). Replaced by a single atomic `awardGameVictory(N)` (fresh DB read + one write).
+
+### Verification
+
+CI on this branch is **fully green**: 50 unit tests (41 pure-JVM engine tests, 3 ViewModel↔Room
+integration tests, 5 existing Robolectric tests, screenshot test) + debug APK build + R8-minified
+release build. Along the way CI also surfaced and fixed: KSP 2.3.5 headless crash (→2.3.12),
+Robolectric SDK 36 needing JDK 21 (→21), a Robolectric/`runBlocking` main-looper deadlock in
+tests (→`Dispatchers.setMain(UnconfinedTestDispatcher)`), the missing `debug.keystore` dependency
+for fresh clones, and a lint-vital false positive.
+
 ### Still open (follow-ups)
 
 1. Full `strings.xml`/i18n extraction and theme-token migration for screen-level colors.

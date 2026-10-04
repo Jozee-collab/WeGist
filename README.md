@@ -42,9 +42,9 @@
 ./gradlew :app:assembleRelease        # R8-minified unsigned release (signs if KEYSTORE_PATH set)
 ```
 
-Requirements: JDK 17+ and an Android SDK with platform 36 (AGP auto-installs missing
-components when licenses are accepted). CI (`.github/workflows/android.yml`) runs the full
-build + test suite on every push.
+Requirements: **JDK 21** (Robolectric tests on SDK 36 require Java 21) and an Android SDK with
+platform 36 (AGP auto-installs missing components when licenses are accepted).
+CI (`.github/workflows/android.yml`) runs the full build + test suite on every push.
 
 ### Firebase (optional)
 
