@@ -56,7 +56,12 @@ android {
       }
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      // Use the committed-to-environment debug keystore when present (e.g. AI
+      // Studio builds); otherwise fall back to AGP's default debug signing
+      // (~/.android/debug.keystore, auto-generated) so fresh clones and CI work.
+      if (file("${rootDir}/debug.keystore").exists()) {
+        signingConfig = signingConfigs.getByName("debugConfig")
+      }
     }
   }
   compileOptions {
