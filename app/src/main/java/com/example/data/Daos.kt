@@ -52,6 +52,9 @@ interface UserStatsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUserStats(stats: UserStats)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertUserStatsIfMissing(stats: UserStats)
 }
 
 @Dao

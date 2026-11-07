@@ -36,6 +36,8 @@ fun MainScreen(
     // Current bottom navigation selected tab
     var selectedTab by remember { mutableStateOf("CHATS") }
     var showGlobalSearch by remember { mutableStateOf(false) }
+    var pendingPostId by remember { mutableStateOf<Int?>(null) }
+    var pendingReelId by remember { mutableStateOf<Int?>(null) }
 
     // Observe core states from ViewModel
     val activeChatId by viewModel.activeChatId.collectAsStateWithLifecycle()
@@ -70,14 +72,13 @@ fun MainScreen(
             SignUpScreen(
                 userStats = userStats,
                 onSignUpComplete = { type, newUsername, value ->
-                    viewModel.updateUsername(newUsername)
-                    val mapType = when (type) {
+                    val accountType = when (type) {
                         "PHONE" -> "PHONE"
                         "EMAIL" -> "GMAIL"
                         "FACEBOOK" -> "FACEBOOK"
                         else -> "PHONE"
                     }
-                    viewModel.linkAccount(mapType, value)
+                    viewModel.completeSignUp(newUsername, accountType, value)
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -191,7 +192,15 @@ fun MainScreen(
                     viewModel.selectStream(streamId)
                     showGlobalSearch = false
                 },
-                onNavigateToFeed = { post ->
+                onNavigateToPost = { postId ->
+                    pendingPostId = postId
+                    pendingReelId = null
+                    selectedTab = "FEED"
+                    showGlobalSearch = false
+                },
+                onNavigateToReel = { reelId ->
+                    pendingReelId = reelId
+                    pendingPostId = null
                     selectedTab = "FEED"
                     showGlobalSearch = false
                 },
@@ -396,6 +405,12 @@ fun MainScreen(
                             onSearchClicked = { showGlobalSearch = true },
                             isDarkMode = userStats.isDarkMode,
                             onToggleTheme = { dark -> viewModel.setDarkMode(dark) },
+                            initialPostId = pendingPostId,
+                            initialReelId = pendingReelId,
+                            onInitialDestinationConsumed = {
+                                pendingPostId = null
+                                pendingReelId = null
+                            },
                             modifier = nestedModifier
                         )
                     }

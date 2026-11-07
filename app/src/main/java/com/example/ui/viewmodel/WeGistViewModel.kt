@@ -120,8 +120,8 @@ class WeGistViewModel(
         viewModelScope.launch {
             repository.clearNonUserStreams()
             
-            // Seed UserStats
-            repository.insertUserStats(UserStats())
+            // Seed the profile atomically without overwriting data saved by another startup action.
+            repository.insertUserStatsIfMissing(UserStats())
 
             // Seed Live Streams if empty
             val currentStreams = repository.activeStreams.first()
@@ -877,6 +877,20 @@ class WeGistViewModel(
     }
 
     // --- REWARDS & SETTINGS ---
+
+    fun completeSignUp(newUsername: String, accountType: String, accountValue: String) {
+        viewModelScope.launch {
+            val me = userStats.value
+            val linkedAccount = when (accountType) {
+                "PHONE" -> me.copy(authPhone = accountValue)
+                "GMAIL" -> me.copy(authGmail = accountValue)
+                "FACEBOOK" -> me.copy(authFacebook = accountValue)
+                "X" -> me.copy(authX = accountValue)
+                else -> me
+            }
+            repository.insertUserStats(linkedAccount.copy(username = newUsername))
+        }
+    }
 
     fun updateUsername(newUsername: String) {
         viewModelScope.launch {

@@ -50,6 +50,9 @@ class Repository(
     suspend fun insertUserStats(stats: UserStats) =
         userStatsDao.insertUserStats(stats)
 
+    suspend fun insertUserStatsIfMissing(stats: UserStats) =
+        userStatsDao.insertUserStatsIfMissing(stats)
+
     // --- Friends Operations ---
     suspend fun insertFriend(friend: Friend) = friendDao.insertFriend(friend)
     suspend fun deleteFriend(userId: String) = friendDao.deleteFriend(userId)

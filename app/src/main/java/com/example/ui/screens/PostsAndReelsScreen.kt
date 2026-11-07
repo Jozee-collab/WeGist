@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,9 +65,15 @@ fun PostsAndReelsScreen(
     onSearchClicked: () -> Unit,
     isDarkMode: Boolean = true,
     onToggleTheme: (Boolean) -> Unit = {},
+    initialPostId: Int? = null,
+    initialReelId: Int? = null,
+    onInitialDestinationConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var selectedSubTab by remember { mutableStateOf("POSTS") } // POSTS or REELS
+    var selectedSubTab by remember {
+        mutableStateOf(if (initialReelId != null) "REELS" else "POSTS")
+    }
+    val postsListState = rememberLazyListState()
     var showCreatePostDialog by remember { mutableStateOf(false) }
     var showCreateReelDialog by remember { mutableStateOf(false) }
     var showCreateStoryDialog by remember { mutableStateOf(false) }
@@ -77,6 +84,15 @@ fun PostsAndReelsScreen(
     var activeShareReel by remember { mutableStateOf<Reel?>(null) }
     var customPostComments by remember { mutableStateOf(mapOf<Int, List<String>>()) }
     var customReelComments by remember { mutableStateOf(mapOf<Int, List<String>>()) }
+
+    LaunchedEffect(initialPostId, posts) {
+        val targetId = initialPostId ?: return@LaunchedEffect
+        if (posts.isNotEmpty()) {
+            val targetIndex = posts.indexOfFirst { it.id == targetId }
+            if (targetIndex >= 0) postsListState.animateScrollToItem(targetIndex)
+            onInitialDestinationConsumed()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -359,6 +375,7 @@ fun PostsAndReelsScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = postsListState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -366,7 +383,7 @@ fun PostsAndReelsScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        items(posts) { post ->
+                        items(items = posts, key = { it.id }) { post ->
                             PostCard(
                                 post = post,
                                 onLike = { onLikePost(post) },
@@ -386,6 +403,8 @@ fun PostsAndReelsScreen(
                 onShareReel = { activeShareReel = it },
                 onViewReel = onViewReel,
                 onPostReelClick = { showCreateReelDialog = true },
+                initialReelId = initialReelId,
+                onInitialDestinationConsumed = onInitialDestinationConsumed,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -859,6 +878,8 @@ fun ReelsPlayerView(
     onShareReel: (Reel) -> Unit,
     onViewReel: (Reel) -> Unit,
     onPostReelClick: () -> Unit,
+    initialReelId: Int? = null,
+    onInitialDestinationConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (reels.isEmpty()) {
@@ -882,6 +903,15 @@ fun ReelsPlayerView(
 
     var activeIndex by remember { mutableStateOf(0) }
     val currentReel = reels.getOrNull(activeIndex)
+
+    LaunchedEffect(initialReelId, reels) {
+        val targetId = initialReelId ?: return@LaunchedEffect
+        if (reels.isNotEmpty()) {
+            val targetIndex = reels.indexOfFirst { it.id == targetId }
+            if (targetIndex >= 0) activeIndex = targetIndex
+            onInitialDestinationConsumed()
+        }
+    }
 
     if (currentReel != null) {
         // Increment view count when loaded

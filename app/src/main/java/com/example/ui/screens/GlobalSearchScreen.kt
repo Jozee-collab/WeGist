@@ -48,7 +48,8 @@ fun GlobalSearchScreen(
     userStats: UserStats,
     onNavigateToChat: (chatId: String) -> Unit,
     onNavigateToStream: (streamId: String) -> Unit,
-    onNavigateToFeed: (Post) -> Unit,
+    onNavigateToPost: (postId: Int) -> Unit,
+    onNavigateToReel: (reelId: Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -305,7 +306,7 @@ fun GlobalSearchScreen(
                             items(matchingPosts) { post ->
                                 PostResultCard(
                                     post = post,
-                                    onClick = { onNavigateToFeed(post) }
+                                    onClick = { onNavigateToPost(post.id) }
                                 )
                             }
 
@@ -313,18 +314,7 @@ fun GlobalSearchScreen(
                             items(matchingReels) { reel ->
                                 ReelResultCard(
                                     reel = reel,
-                                    onClick = {
-                                        // Creating a temporary Post representation of the Reel to navigate safely
-                                        val tempPost = Post(
-                                            id = reel.id,
-                                            authorName = reel.creatorName,
-                                            authorAvatar = reel.creatorAvatar,
-                                            content = "[Clip: ${reel.gameTag}] ${reel.caption}",
-                                            likesCount = reel.likesCount,
-                                            commentsCount = reel.commentsCount
-                                        )
-                                        onNavigateToFeed(tempPost)
-                                    }
+                                    onClick = { onNavigateToReel(reel.id) }
                                 )
                             }
                         }
