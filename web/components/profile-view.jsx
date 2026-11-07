@@ -1,0 +1,31 @@
+"use client";
+
+import { useState } from "react";
+import { Bell, Check, ChevronRight, CircleHelp, Eye, LockKeyhole, Moon, Shield, Sun, UserRound, UsersRound } from "lucide-react";
+
+export default function ProfileView({ username, onUsernameChange, coins, onToggleTheme, isDark }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(username);
+  const [privacy, setPrivacy] = useState({ invites: true, receipts: true, streams: false });
+  const [saved, setSaved] = useState(false);
+
+  function saveName(event) {
+    event.preventDefault();
+    if (draft.trim()) onUsernameChange(draft.trim());
+    setEditing(false);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2200);
+  }
+
+  return (
+    <section className="profile-page">
+      <div className="section-heading profile-heading"><div><p className="eyebrow">YOUR PLAYER CARD</p><h1>Profile & settings</h1><p className="section-subtitle">Make your corner of WeGist feel like yours.</p></div></div>
+      <div className="profile-overview"><div className="profile-cover" style={{ backgroundImage: "linear-gradient(90deg, rgba(11,13,20,.82), rgba(11,13,20,.2)), url('/images/space-shooter.jpg')" }}><span className="profile-level">LEVEL 08</span></div><div className="profile-main"><span className="avatar avatar-user avatar-profile">W</span><div className="profile-identity"><h2>{username}</h2><span>@wegamer · Joined this season</span><p>Here for good games and even better company.</p></div><button className="profile-edit-button" type="button" onClick={() => { setDraft(username); setEditing(true); }}>Edit profile</button></div><div className="profile-stats"><div><strong>18</strong><span>Wins</span></div><div><strong>245<span className="rank-hash">#</span></strong><span>Global rank</span></div><div><strong>{coins.toLocaleString()}</strong><span>Arcade coins</span></div><div><strong>4</strong><span>Streams</span></div></div></div>
+      <div className="settings-grid"><div className="settings-main-column"><div className="settings-card"><div className="settings-card-heading"><span className="settings-icon"><Shield size={17} /></span><div><h2>Privacy & safety</h2><p>You’re in control of who sees what.</p></div></div><div className="settings-row"><span className="settings-row-icon"><UsersRound size={16} /></span><span className="settings-row-copy"><strong>Game invites from friends</strong><small>Only people you know can invite you</small></span><button className={`toggle-switch ${privacy.invites ? "on" : ""}`} type="button" role="switch" aria-checked={privacy.invites} aria-label="Game invites from friends" onClick={() => setPrivacy((state) => ({ ...state, invites: !state.invites }))}><i /></button></div><div className="settings-row"><span className="settings-row-icon"><Eye size={16} /></span><span className="settings-row-copy"><strong>Read receipts</strong><small>Let friends know when you’ve seen a message</small></span><button className={`toggle-switch ${privacy.receipts ? "on" : ""}`} type="button" role="switch" aria-checked={privacy.receipts} aria-label="Read receipts" onClick={() => setPrivacy((state) => ({ ...state, receipts: !state.receipts }))}><i /></button></div><div className="settings-row"><span className="settings-row-icon"><Bell size={16} /></span><span className="settings-row-copy"><strong>Stream notifications</strong><small>Get a heads-up when friends go live</small></span><button className={`toggle-switch ${privacy.streams ? "on" : ""}`} type="button" role="switch" aria-checked={privacy.streams} aria-label="Stream notifications" onClick={() => setPrivacy((state) => ({ ...state, streams: !state.streams }))}><i /></button></div></div>
+      <div className="settings-card appearance-card"><div className="settings-card-heading"><span className="settings-icon"><Moon size={17} /></span><div><h2>Appearance</h2><p>Choose how WeGist looks on this device.</p></div></div><div className="appearance-options"><button type="button" className={`appearance-choice ${isDark ? "chosen" : ""}`} onClick={() => onToggleTheme(true)}><Moon size={17} /><span>Dark</span>{isDark && <Check size={15} />}</button><button type="button" className={`appearance-choice ${!isDark ? "chosen" : ""}`} onClick={() => onToggleTheme(false)}><Sun size={17} /><span>Light</span>{!isDark && <Check size={15} />}</button></div></div></div>
+      <div className="settings-side-column"><div className="settings-card account-card"><div className="settings-card-heading"><span className="settings-icon"><LockKeyhole size={17} /></span><div><h2>Account</h2><p>Your login & security</p></div></div><button className="account-action" type="button"><span><strong>Linked email</strong><small>player@wegist.gg</small></span><ChevronRight size={17} /></button><button className="account-action" type="button"><span><strong>Password & security</strong><small>Update your sign-in details</small></span><ChevronRight size={17} /></button><button className="account-action" type="button"><span><strong>Blocked players</strong><small>Manage your list</small></span><ChevronRight size={17} /></button></div><button className="help-card" type="button"><span className="help-icon"><CircleHelp size={18} /></span><span><strong>Need a hand?</strong><small>Visit the player support hub.</small></span><ChevronRight size={17} /></button></div></div>
+      {saved && <div className="toast-message" role="status"><Check size={15} /> Profile updated</div>}
+      {editing && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(false); }}><form className="modal-card edit-profile-modal" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onSubmit={saveName}><p className="eyebrow">PLAYER CARD</p><h2 id="edit-profile-title">Edit profile</h2><label className="form-label">Display name<input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={24} required autoFocus /></label><div className="edit-profile-actions"><button className="secondary-wide-button" type="button" onClick={() => setEditing(false)}>Cancel</button><button className="primary-wide-button" type="submit">Save changes</button></div></form></div>}
+    </section>
+  );
+}

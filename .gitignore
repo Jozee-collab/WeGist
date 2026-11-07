@@ -16,3 +16,8 @@
 local.properties
 .env
 debug.keystore
+
+# Web companion
+web/node_modules/
+web/.next/
+web/out/
